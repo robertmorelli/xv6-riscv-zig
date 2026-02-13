@@ -11,10 +11,31 @@
 import argparse, os, inspect, re, signal, subprocess, sys, time
 from subprocess import run
 
+ROOT = os.path.dirname(os.path.abspath(__file__))
+
+def zig_env():
+    env = os.environ.copy()
+    env.setdefault("ZIG_LOCAL_CACHE_DIR", os.path.join(ROOT, ".zig-cache-local"))
+    env.setdefault("ZIG_GLOBAL_CACHE_DIR", os.path.join(ROOT, ".zig-global-cache"))
+    return env
+
 parser = argparse.ArgumentParser()
 parser.add_argument('testrex', help="test name or regular expression")
 parser.add_argument("-q", action='store_true', help="usertests quick")
 args = parser.parse_args()
+
+QEMU_CMD = [
+    "qemu-system-riscv64",
+    "-machine", "virt",
+    "-bios", "none",
+    "-kernel", "kernel/kernel",
+    "-m", "128M",
+    "-smp", "3",
+    "-nographic",
+    "-global", "virtio-mmio.force-legacy=false",
+    "-drive", "file=fs.img,if=none,format=raw,id=x0",
+    "-device", "virtio-blk-device,drive=x0,bus=virtio-mmio-bus.0",
+]
 
 class QEMU(object):
 
@@ -22,7 +43,7 @@ class QEMU(object):
         if reset:
             self.build_xv6()
             self.reset_fs()
-        q = ["make", "qemu"]
+        q = QEMU_CMD
         self.proc = subprocess.Popen(q, stdin=subprocess.PIPE,
                                       stdout=subprocess.PIPE,
                                       stderr=subprocess.STDOUT)
@@ -32,14 +53,14 @@ class QEMU(object):
 
     def reset_fs(self):
         try:
-            run(["rm", "fs.img"], check=True)
-            run(["make", "fs.img"], check=True)
+            run(["rm", "fs.img"], check=True, cwd=ROOT)
+            run(["zig", "build", "fsimg"], check=True, cwd=ROOT, env=zig_env())
         except subprocess.CalledProcessError as e:
             print(f"Command failed with exit code {e.returncode}")
 
     def build_xv6(self):
         try:
-            run(["make", "kernel/kernel"], check=True)
+            run(["zig", "build", "kernel"], check=True, cwd=ROOT, env=zig_env())
         except subprocess.CalledProcessError as e:
             print(f"Command failed with exit code {e.returncode}")
 
@@ -58,16 +79,20 @@ class QEMU(object):
         self.proc.stdin.flush()
         
     def crash(self):
-        ps = run(['ps', '-opid', '--no-headers', '--ppid', str(self.proc.pid)], stdout=subprocess.PIPE, encoding='utf8')
-        kids = [int(line) for line in ps.stdout.splitlines()]
-        if len(kids) == 0:
+        if self.proc.poll() is not None:
             print("no qemu")
-            os.exit(1)
-        print("kill", kids[0])
-        os.kill(kids[0], signal.SIGKILL)
+            sys.exit(1)
+        self.proc.kill()
+        self.proc.wait(timeout=3)
 
     def stop(self):
+        if self.proc.poll() is not None:
+            return
         self.proc.terminate()
+        try:
+            self.proc.wait(timeout=3)
+        except subprocess.TimeoutExpired:
+            self.proc.kill()
 
     def read(self):
         buf = os.read(self.proc.stdout.fileno(), 4096)
@@ -112,8 +137,15 @@ class QEMU(object):
             if ok:
                 print(line)
 
+    def wait_for_shell(self, timeout=20):
+        self.monitor(r'^\$', progress=r'^\$', timeout=timeout)
+        # Give init/sh a brief moment after printing "$ " before sending
+        # the next command; otherwise the first byte can be dropped.
+        time.sleep(0.1)
+
 def crash_log():
     q = QEMU(True)
+    q.wait_for_shell()
     q.cmd("logstress f0 f1 f2 f3 f4 f5\n")
     time.sleep(2)
     q.crash()
@@ -134,6 +166,7 @@ def recover_log():
 
 def forphan():
     q = QEMU(True)
+    q.wait_for_shell()
     q.cmd("forphan\n")
     time.sleep(5)
     q.read()
@@ -143,6 +176,7 @@ def forphan():
 
 def dorphan():
     q = QEMU(True)
+    q.wait_for_shell()
     q.cmd("dorphan\n")
     time.sleep(5)
     q.read()
@@ -195,6 +229,7 @@ def test_usertests(test=""):
     elif test != "":
         opt += " " + test
     q = QEMU(True)
+    q.wait_for_shell()
     q.cmd("usertests" + opt + "\n")
     q.monitor('^ALL TESTS PASSED', progress='test', timeout=timeout)
     q.stop()
