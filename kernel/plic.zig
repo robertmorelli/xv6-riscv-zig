@@ -1,19 +1,19 @@
-const PLIC: usize = 0x0c000000;
+const PLIC: u64 = 0x0c000000;
 const UART0_IRQ: u32 = 10;
 const VIRTIO0_IRQ: u32 = 1;
 
-extern fn cpuid() callconv(.c) i32;
+extern fn cpuid() i32;
 
-inline fn plicSenable(hart: i32) usize {
-    return PLIC + 0x2080 + @as(usize, @intCast(hart)) * 0x100;
+inline fn plicSenable(hart: i32) u64 {
+    return PLIC + 0x2080 + @as(u64, @intCast(hart)) * 0x100;
 }
 
-inline fn plicSpriority(hart: i32) usize {
-    return PLIC + 0x201000 + @as(usize, @intCast(hart)) * 0x2000;
+inline fn plicSpriority(hart: i32) u64 {
+    return PLIC + 0x201000 + @as(u64, @intCast(hart)) * 0x2000;
 }
 
-inline fn plicSclaim(hart: i32) usize {
-    return PLIC + 0x201004 + @as(usize, @intCast(hart)) * 0x2000;
+inline fn plicSclaim(hart: i32) u64 {
+    return PLIC + 0x201004 + @as(u64, @intCast(hart)) * 0x2000;
 }
 
 pub export fn plicinit() void {

@@ -1,12 +1,10 @@
-const cint = i32;
-const cuint = u32;
 
-const PGSIZE: usize = 4096;
-const KERNBASE: usize = 0x80000000;
-const PHYSTOP: usize = KERNBASE + 128 * 1024 * 1024;
+const PGSIZE: u64 = 4096;
+const KERNBASE: u64 = 0x80000000;
+const PHYSTOP: u64 = KERNBASE + 128 * 1024 * 1024;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
@@ -24,13 +22,13 @@ var kmem: Kmem = undefined;
 
 extern var end: u8;
 
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn memset(dst: ?*anyopaque, c: cint, n: cuint) callconv(.c) ?*anyopaque;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn memset(dst: ?*anyopaque, c: i32, n: u32) ?*anyopaque;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
 
-inline fn pgroundup(sz: usize) usize {
+inline fn pgroundup(sz: u64) u64 {
     return (sz + PGSIZE - 1) & ~(PGSIZE - 1);
 }
 

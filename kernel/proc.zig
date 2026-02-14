@@ -1,27 +1,25 @@
 const std = @import("std");
 
-const cint = i32;
-const cuint = u32;
 
-const NCPU: usize = 8;
-const NPROC: usize = 64;
-const NOFILE: usize = 16;
+const NCPU: u64 = 8;
+const NPROC: u64 = 64;
+const NOFILE: u64 = 16;
 const PGSIZE: u64 = 4096;
-const PTE_R: cuint = 0x002;
-const PTE_W: cuint = 0x004;
-const PTE_X: cuint = 0x008;
-const PTE_U: cuint = 0x010;
+const PTE_R: u32 = 0x002;
+const PTE_W: u32 = 0x004;
+const PTE_X: u32 = 0x008;
+const PTE_U: u32 = 0x010;
 const MAXVA: u64 = (@as(u64, 1) << 38);
 const TRAMPOLINE: u64 = MAXVA - PGSIZE;
 const TRAPFRAME: u64 = TRAMPOLINE - PGSIZE;
-const ROOTDEV: cint = 1;
+const ROOTDEV: i32 = 1;
 
-const UNUSED: cint = 0;
-const USED: cint = 1;
-const SLEEPING: cint = 2;
-const RUNNABLE: cint = 3;
-const RUNNING: cint = 4;
-const ZOMBIE: cint = 5;
+const UNUSED: i32 = 0;
+const USED: i32 = 1;
+const SLEEPING: i32 = 2;
+const RUNNABLE: i32 = 3;
+const RUNNING: i32 = 4;
+const ZOMBIE: i32 = 5;
 
 const Context = extern struct {
     ra: u64,
@@ -43,12 +41,12 @@ const Context = extern struct {
 const Cpu = extern struct {
     proc: ?*Proc,
     context: Context,
-    noff: cint,
-    intena: cint,
+    noff: i32,
+    intena: i32,
 };
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*Cpu,
 };
@@ -94,11 +92,11 @@ const Trapframe = extern struct {
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*Proc,
     kstack: u64,
     sz: u64,
@@ -114,51 +112,51 @@ pub export var cpus: [NCPU]Cpu = std.mem.zeroes([NCPU]Cpu);
 pub export var proc: [NPROC]Proc = std.mem.zeroes([NPROC]Proc);
 pub export var initproc: ?*Proc = null;
 
-var nextpid: cint = 1;
+var nextpid: i32 = 1;
 var pid_lock: Spinlock = std.mem.zeroes(Spinlock);
 var wait_lock: Spinlock = std.mem.zeroes(Spinlock);
-var forkret_first: cint = 1;
+var forkret_first: i32 = 1;
 
 extern var trampoline: u8;
 extern var userret: u8;
 
-extern fn kalloc() callconv(.c) ?*anyopaque;
-extern fn kfree(pa: ?*anyopaque) callconv(.c) void;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn kvmmap(kpgtbl: [*c]u64, va: u64, pa: u64, sz: u64, perm: cint) callconv(.c) void;
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn push_off() callconv(.c) void;
-extern fn pop_off() callconv(.c) void;
-extern fn memset(dst: ?*anyopaque, c: cint, n: cuint) callconv(.c) ?*anyopaque;
-extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: cuint) callconv(.c) ?*anyopaque;
-extern fn uvmcreate() callconv(.c) [*c]u64;
-extern fn mappages(pagetable: [*c]u64, va: u64, size: u64, pa: u64, perm: cint) callconv(.c) cint;
-extern fn uvmfree(pagetable: [*c]u64, sz: u64) callconv(.c) void;
-extern fn uvmunmap(pagetable: [*c]u64, va: u64, npages: u64, do_free: cint) callconv(.c) void;
-extern fn uvmalloc(pagetable: [*c]u64, oldsz: u64, newsz: u64, xperm: cint) callconv(.c) u64;
-extern fn uvmdealloc(pagetable: [*c]u64, oldsz: u64, newsz: u64) callconv(.c) u64;
-extern fn uvmcopy(old: [*c]u64, new: [*c]u64, sz: u64) callconv(.c) cint;
-extern fn namei(path: [*c]u8) callconv(.c) ?*anyopaque;
-extern fn filedup(f: ?*anyopaque) callconv(.c) ?*anyopaque;
-extern fn idup(ip: ?*anyopaque) callconv(.c) ?*anyopaque;
-extern fn safestrcpy(dst: [*c]u8, src: [*c]const u8, n: cint) callconv(.c) [*c]u8;
-extern fn fileclose(f: ?*anyopaque) callconv(.c) void;
-extern fn begin_op() callconv(.c) void;
-extern fn iput(ip: ?*anyopaque) callconv(.c) void;
-extern fn end_op() callconv(.c) void;
-extern fn copyout(pagetable: [*c]u64, dstva: u64, src: [*c]u8, len: u64) callconv(.c) cint;
-extern fn swtch(old: *Context, new: *Context) callconv(.c) void;
-extern fn holding(lk: *Spinlock) callconv(.c) cint;
-extern fn fsinit(dev: cint) callconv(.c) void;
-extern fn kexec(path: [*c]u8, argv: [*c][*c]u8) callconv(.c) cint;
-extern fn prepare_return() callconv(.c) void;
-extern fn copyin(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, len: u64) callconv(.c) cint;
-extern fn printf(fmt: [*c]const u8, ...) callconv(.c) cint;
-extern fn consputc(c: cint) callconv(.c) void;
+extern fn kalloc() ?*anyopaque;
+extern fn kfree(pa: ?*anyopaque) void;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn kvmmap(kpgtbl: [*c]u64, va: u64, pa: u64, sz: u64, perm: i32) void;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn push_off() void;
+extern fn pop_off() void;
+extern fn memset(dst: ?*anyopaque, c: i32, n: u32) ?*anyopaque;
+extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: u32) ?*anyopaque;
+extern fn uvmcreate() [*c]u64;
+extern fn mappages(pagetable: [*c]u64, va: u64, size: u64, pa: u64, perm: i32) i32;
+extern fn uvmfree(pagetable: [*c]u64, sz: u64) void;
+extern fn uvmunmap(pagetable: [*c]u64, va: u64, npages: u64, do_free: i32) void;
+extern fn uvmalloc(pagetable: [*c]u64, oldsz: u64, newsz: u64, xperm: i32) u64;
+extern fn uvmdealloc(pagetable: [*c]u64, oldsz: u64, newsz: u64) u64;
+extern fn uvmcopy(old: [*c]u64, new: [*c]u64, sz: u64) i32;
+extern fn namei(path: [*c]u8) ?*anyopaque;
+extern fn filedup(f: ?*anyopaque) ?*anyopaque;
+extern fn idup(ip: ?*anyopaque) ?*anyopaque;
+extern fn safestrcpy(dst: [*c]u8, src: [*c]const u8, n: i32) [*c]u8;
+extern fn fileclose(f: ?*anyopaque) void;
+extern fn begin_op() void;
+extern fn iput(ip: ?*anyopaque) void;
+extern fn end_op() void;
+extern fn copyout(pagetable: [*c]u64, dstva: u64, src: [*c]u8, len: u64) i32;
+extern fn swtch(old: *Context, new: *Context) void;
+extern fn holding(lk: *Spinlock) i32;
+extern fn fsinit(dev: i32) void;
+extern fn kexec(path: [*c]u8, argv: [*c][*c]u8) i32;
+extern fn prepare_return() void;
+extern fn copyin(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, len: u64) i32;
+extern fn printf(fmt: [*c]const u8, ...) i32;
+extern fn consputc(c: i32) void;
 
-inline fn kstack(idx: usize) u64 {
+inline fn kstack(idx: u64) u64 {
     return TRAMPOLINE - (@as(u64, @intCast(idx)) + 1) * 2 * PGSIZE;
 }
 
@@ -189,7 +187,7 @@ inline fn intr_off() void {
     w_sstatus(r_sstatus() & ~(@as(u64, 1) << 1));
 }
 
-inline fn intr_get() cint {
+inline fn intr_get() i32 {
     return if ((r_sstatus() & (@as(u64, 1) << 1)) != 0) 1 else 0;
 }
 
@@ -217,7 +215,7 @@ fn freeproc(p: *Proc) void {
 }
 
 fn allocproc() ?*Proc {
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NPROC) : (i += 1) {
         const p = &proc[i];
         acquire(&p.lock);
@@ -251,7 +249,7 @@ fn allocproc() ?*Proc {
 }
 
 pub export fn proc_mapstacks(kpgtbl: [*c]u64) void {
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NPROC) : (i += 1) {
         const pa = kalloc();
         if (pa == null) {
@@ -266,7 +264,7 @@ pub export fn procinit() void {
     initlock(&pid_lock, @constCast("nextpid"));
     initlock(&wait_lock, @constCast("wait_lock"));
 
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NPROC) : (i += 1) {
         const p = &proc[i];
         initlock(&p.lock, @constCast("proc"));
@@ -275,12 +273,12 @@ pub export fn procinit() void {
     }
 }
 
-pub export fn cpuid() cint {
+pub export fn cpuid() i32 {
     return @intCast(r_tp());
 }
 
 pub export fn mycpu() *Cpu {
-    const id: usize = @intCast(@as(cuint, @intCast(cpuid())));
+    const id: u64 = @intCast(@as(u32, @intCast(cpuid())));
     return &cpus[id];
 }
 
@@ -291,7 +289,7 @@ pub export fn myproc() ?*Proc {
     return p;
 }
 
-pub export fn allocpid() cint {
+pub export fn allocpid() i32 {
     acquire(&pid_lock);
     const pid = nextpid;
     nextpid += 1;
@@ -333,12 +331,12 @@ pub export fn userinit() void {
     release(&p.lock);
 }
 
-pub export fn growproc(n: cint) cint {
+pub export fn growproc(n: i32) i32 {
     const p = myproc().?;
     var sz = p.sz;
 
     if (n > 0) {
-        const n_u64: u64 = @intCast(@as(cuint, @intCast(n)));
+        const n_u64: u64 = @intCast(@as(u32, @intCast(n)));
         if (sz + n_u64 > TRAPFRAME) {
             return -1;
         }
@@ -354,7 +352,7 @@ pub export fn growproc(n: cint) cint {
     return 0;
 }
 
-pub export fn kfork() cint {
+pub export fn kfork() i32 {
     const p = myproc().?;
     const np = allocproc() orelse return -1;
 
@@ -367,7 +365,7 @@ pub export fn kfork() cint {
     np.trapframe.?.* = p.trapframe.?.*;
     np.trapframe.?.a0 = 0;
 
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NOFILE) : (i += 1) {
         if (p.ofile[i] != null) {
             np.ofile[i] = filedup(p.ofile[i]);
@@ -391,7 +389,7 @@ pub export fn kfork() cint {
 }
 
 fn reparent(p: *Proc) void {
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NPROC) : (i += 1) {
         const pp = &proc[i];
         if (pp.parent == p) {
@@ -401,14 +399,14 @@ fn reparent(p: *Proc) void {
     }
 }
 
-pub export fn kexit(status: cint) void {
+pub export fn kexit(status: i32) void {
     const p = myproc().?;
 
     if (p == initproc) {
         panic("init exiting");
     }
 
-    var fd: usize = 0;
+    var fd: u64 = 0;
     while (fd < NOFILE) : (fd += 1) {
         if (p.ofile[fd] != null) {
             const f = p.ofile[fd];
@@ -435,13 +433,13 @@ pub export fn kexit(status: cint) void {
     panic("zombie exit");
 }
 
-pub export fn kwait(addr: u64) cint {
+pub export fn kwait(addr: u64) i32 {
     const p = myproc().?;
 
     acquire(&wait_lock);
     while (true) {
-        var havekids: cint = 0;
-        var i: usize = 0;
+        var havekids: i32 = 0;
+        var i: u64 = 0;
         while (i < NPROC) : (i += 1) {
             const pp = &proc[i];
             if (pp.parent == p) {
@@ -449,7 +447,7 @@ pub export fn kwait(addr: u64) cint {
                 havekids = 1;
                 if (pp.state == ZOMBIE) {
                     const pid = pp.pid;
-                    if (addr != 0 and copyout(p.pagetable, addr, @ptrCast(&pp.xstate), @sizeOf(cint)) < 0) {
+                    if (addr != 0 and copyout(p.pagetable, addr, @ptrCast(&pp.xstate), @sizeOf(i32)) < 0) {
                         release(&pp.lock);
                         release(&wait_lock);
                         return -1;
@@ -480,8 +478,8 @@ pub export fn scheduler() noreturn {
         intr_on();
         intr_off();
 
-        var found: cint = 0;
-        var i: usize = 0;
+        var found: i32 = 0;
+        var i: u64 = 0;
         while (i < NPROC) : (i += 1) {
             const p = &proc[i];
             acquire(&p.lock);
@@ -572,7 +570,7 @@ pub export fn sleep(chan: ?*anyopaque, lk: *Spinlock) void {
 
 pub export fn wakeup(chan: ?*anyopaque) void {
     const self = myproc();
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NPROC) : (i += 1) {
         const p = &proc[i];
         if (self == null or p != self.?) {
@@ -585,8 +583,8 @@ pub export fn wakeup(chan: ?*anyopaque) void {
     }
 }
 
-pub export fn kkill(pid: cint) cint {
-    var i: usize = 0;
+pub export fn kkill(pid: i32) i32 {
+    var i: u64 = 0;
     while (i < NPROC) : (i += 1) {
         const p = &proc[i];
         acquire(&p.lock);
@@ -609,14 +607,14 @@ pub export fn setkilled(p: *Proc) void {
     release(&p.lock);
 }
 
-pub export fn killed(p: *Proc) cint {
+pub export fn killed(p: *Proc) i32 {
     acquire(&p.lock);
     const k = p.killed;
     release(&p.lock);
     return k;
 }
 
-pub export fn either_copyout(user_dst: cint, dst: u64, src: ?*anyopaque, len: u64) cint {
+pub export fn either_copyout(user_dst: i32, dst: u64, src: ?*anyopaque, len: u64) i32 {
     const p = myproc().?;
     if (user_dst != 0) {
         return copyout(p.pagetable, dst, @ptrCast(src), len);
@@ -626,7 +624,7 @@ pub export fn either_copyout(user_dst: cint, dst: u64, src: ?*anyopaque, len: u6
     }
 }
 
-pub export fn either_copyin(dst: ?*anyopaque, user_src: cint, src: u64, len: u64) cint {
+pub export fn either_copyin(dst: ?*anyopaque, user_src: i32, src: u64, len: u64) i32 {
     const p = myproc().?;
     if (user_src != 0) {
         return copyin(p.pagetable, @ptrCast(dst), src, len);
@@ -647,14 +645,14 @@ pub export fn procdump() void {
     };
 
     consputc('\n');
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NPROC) : (i += 1) {
         const p = &proc[i];
         if (p.state == UNUSED) {
             continue;
         }
 
-        const idx: usize = if (p.state >= 0) @intCast(@as(cuint, @intCast(p.state))) else states.len;
+        const idx: u64 = if (p.state >= 0) @intCast(@as(u32, @intCast(p.state))) else states.len;
         const state: [*c]const u8 = if (idx < states.len and states[idx] != null) states[idx].? else "???";
         _ = printf("%d %s %s", p.pid, state, @as([*c]u8, @ptrCast(&p.name)));
         consputc('\n');

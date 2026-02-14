@@ -1,44 +1,42 @@
 const std = @import("std");
 
-const cint = i32;
-const cuint = u32;
 
-const NINODE: usize = 50;
-const ROOTDEV: cuint = 1;
-const ROOTINO: cuint = 1;
-const BSIZE: usize = 1024;
-const BSIZE_U32: cuint = 1024;
-const FSMAGIC: cuint = 0x10203040;
-const NDIRECT: usize = 12;
-const NINDIRECT: usize = BSIZE / @sizeOf(cuint);
-const MAXFILE: usize = NDIRECT + NINDIRECT;
-const IPB: usize = BSIZE / @sizeOf(Dinode);
-const BPB: cuint = BSIZE * 8;
-const DIRSIZ: usize = 14;
+const NINODE: u64 = 50;
+const ROOTDEV: u32 = 1;
+const ROOTINO: u32 = 1;
+const BSIZE: u64 = 1024;
+const BSIZE_U32: u32 = 1024;
+const FSMAGIC: u32 = 0x10203040;
+const NDIRECT: u64 = 12;
+const NINDIRECT: u64 = BSIZE / @sizeOf(u32);
+const MAXFILE: u64 = NDIRECT + NINDIRECT;
+const IPB: u64 = BSIZE / @sizeOf(Dinode);
+const BPB: u32 = BSIZE * 8;
+const DIRSIZ: u64 = 14;
 const T_DIR: i16 = 1;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Sleeplock = extern struct {
-    locked: cuint,
+    locked: u32,
     lk: Spinlock,
     name: [*c]u8,
-    pid: cint,
+    pid: i32,
 };
 
 const Superblock = extern struct {
-    magic: cuint,
-    size: cuint,
-    nblocks: cuint,
-    ninodes: cuint,
-    nlog: cuint,
-    logstart: cuint,
-    inodestart: cuint,
-    bmapstart: cuint,
+    magic: u32,
+    size: u32,
+    nblocks: u32,
+    ninodes: u32,
+    nlog: u32,
+    logstart: u32,
+    inodestart: u32,
+    bmapstart: u32,
 };
 
 const Dinode = extern struct {
@@ -46,31 +44,31 @@ const Dinode = extern struct {
     major: i16,
     minor: i16,
     nlink: i16,
-    size: cuint,
-    addrs: [NDIRECT + 1]cuint,
+    size: u32,
+    addrs: [NDIRECT + 1]u32,
 };
 
 const Inode = extern struct {
-    dev: cuint,
-    inum: cuint,
-    ref: cint,
+    dev: u32,
+    inum: u32,
+    ref: i32,
     lock: Sleeplock,
-    valid: cint,
+    valid: i32,
     type: i16,
     major: i16,
     minor: i16,
     nlink: i16,
-    size: cuint,
-    addrs: [NDIRECT + 1]cuint,
+    size: u32,
+    addrs: [NDIRECT + 1]u32,
 };
 
 const Buf = extern struct {
-    valid: cint,
-    disk: cint,
-    dev: cuint,
-    blockno: cuint,
+    valid: i32,
+    disk: i32,
+    dev: u32,
+    blockno: u32,
     lock: Sleeplock,
-    refcnt: cuint,
+    refcnt: u32,
     prev: ?*Buf,
     next: ?*Buf,
     data: [BSIZE]u8,
@@ -82,8 +80,8 @@ const Dirent = extern struct {
 };
 
 const Stat = extern struct {
-    dev: cint,
-    ino: cuint,
+    dev: i32,
+    ino: u32,
     type: i16,
     nlink: i16,
     size: u64,
@@ -108,11 +106,11 @@ const Context = extern struct {
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*Proc,
     kstack: u64,
     sz: u64,
@@ -132,48 +130,48 @@ const ITable = extern struct {
 pub export var sb: Superblock = std.mem.zeroes(Superblock);
 var itable: ITable = std.mem.zeroes(ITable);
 
-extern fn bread(dev: cuint, blockno: cuint) callconv(.c) *Buf;
-extern fn brelse(b: *Buf) callconv(.c) void;
-extern fn log_write(b: *Buf) callconv(.c) void;
-extern fn initlog(dev: cint, sb_in: *Superblock) callconv(.c) void;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn printf(fmt: [*c]const u8, ...) callconv(.c) cint;
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn initsleeplock(lk: *Sleeplock, name: [*c]u8) callconv(.c) void;
-extern fn acquiresleep(lk: *Sleeplock) callconv(.c) void;
-extern fn releasesleep(lk: *Sleeplock) callconv(.c) void;
-extern fn holdingsleep(lk: *Sleeplock) callconv(.c) cint;
-extern fn begin_op() callconv(.c) void;
-extern fn end_op() callconv(.c) void;
-extern fn either_copyout(user_dst: cint, dst: u64, src: ?*anyopaque, len: u64) callconv(.c) cint;
-extern fn either_copyin(dst: ?*anyopaque, user_src: cint, src: u64, len: u64) callconv(.c) cint;
-extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: cuint) callconv(.c) ?*anyopaque;
-extern fn memset(dst: ?*anyopaque, c: cint, n: cuint) callconv(.c) ?*anyopaque;
-extern fn strncmp(p: [*c]const u8, q: [*c]const u8, n: cuint) callconv(.c) cint;
-extern fn strncpy(s: [*c]u8, t: [*c]const u8, n: cuint) callconv(.c) [*c]u8;
-extern fn myproc() callconv(.c) ?*Proc;
+extern fn bread(dev: u32, blockno: u32) *Buf;
+extern fn brelse(b: *Buf) void;
+extern fn log_write(b: *Buf) void;
+extern fn initlog(dev: i32, sb_in: *Superblock) void;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn printf(fmt: [*c]const u8, ...) i32;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn initsleeplock(lk: *Sleeplock, name: [*c]u8) void;
+extern fn acquiresleep(lk: *Sleeplock) void;
+extern fn releasesleep(lk: *Sleeplock) void;
+extern fn holdingsleep(lk: *Sleeplock) i32;
+extern fn begin_op() void;
+extern fn end_op() void;
+extern fn either_copyout(user_dst: i32, dst: u64, src: ?*anyopaque, len: u64) i32;
+extern fn either_copyin(dst: ?*anyopaque, user_src: i32, src: u64, len: u64) i32;
+extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: u32) ?*anyopaque;
+extern fn memset(dst: ?*anyopaque, c: i32, n: u32) ?*anyopaque;
+extern fn strncmp(p: [*c]const u8, q: [*c]const u8, n: u32) i32;
+extern fn strncpy(s: [*c]u8, t: [*c]const u8, n: u32) [*c]u8;
+extern fn myproc() ?*Proc;
 
-inline fn iblock(i: cuint) cuint {
+inline fn iblock(i: u32) u32 {
     return @intCast(i / IPB + sb.inodestart);
 }
 
-inline fn bblock(b: cuint) cuint {
+inline fn bblock(b: u32) u32 {
     return @intCast(b / BPB + sb.bmapstart);
 }
 
-inline fn min_u32(a: cuint, b: cuint) cuint {
+inline fn min_u32(a: u32, b: u32) u32 {
     return if (a < b) a else b;
 }
 
-fn readsb(dev: cint, sb_out: *Superblock) void {
-    const bp = bread(@intCast(@as(cuint, @intCast(dev))), 1);
+fn readsb(dev: i32, sb_out: *Superblock) void {
+    const bp = bread(@intCast(@as(u32, @intCast(dev))), 1);
     _ = memmove(sb_out, @ptrCast(&bp.data), @intCast(@sizeOf(Superblock)));
     brelse(bp);
 }
 
-pub export fn fsinit(dev: cint) void {
+pub export fn fsinit(dev: i32) void {
     readsb(dev, &sb);
     if (sb.magic != FSMAGIC) {
         panic("invalid file system");
@@ -182,41 +180,41 @@ pub export fn fsinit(dev: cint) void {
     ireclaim(dev);
 }
 
-fn bzero(dev: cint, bno: cint) void {
-    const bp = bread(@intCast(@as(cuint, @intCast(dev))), @intCast(@as(cuint, @intCast(bno))));
+fn bzero(dev: i32, bno: i32) void {
+    const bp = bread(@intCast(@as(u32, @intCast(dev))), @intCast(@as(u32, @intCast(bno))));
     _ = memset(@ptrCast(&bp.data), 0, BSIZE_U32);
     log_write(bp);
     brelse(bp);
 }
 
-fn balloc(dev: cuint) cuint {
-    var b: cuint = 0;
+fn balloc(dev: u32) u32 {
+    var b: u32 = 0;
     while (b < sb.size) : (b += BPB) {
         const bp = bread(dev, bblock(b));
 
-        var bi: cuint = 0;
+        var bi: u32 = 0;
         while (bi < BPB and (b + bi) < sb.size) : (bi += 1) {
-            const m: u8 = @intCast(@as(cuint, 1) << @intCast(bi % 8));
-            const idx: usize = @intCast(bi / 8);
+            const m: u8 = @intCast(@as(u32, 1) << @intCast(bi % 8));
+            const idx: u64 = @intCast(bi / 8);
             if ((bp.data[idx] & m) == 0) {
                 bp.data[idx] |= m;
                 log_write(bp);
                 brelse(bp);
-                bzero(@intCast(@as(cuint, dev)), @intCast(@as(cuint, b + bi)));
+                bzero(@intCast(@as(u32, dev)), @intCast(@as(u32, b + bi)));
                 return b + bi;
             }
         }
         brelse(bp);
     }
-    _ = printf("balloc: out of blocks %d\n", @as(cint, 0));
+    _ = printf("balloc: out of blocks %d\n", @as(i32, 0));
     return 0;
 }
 
-fn bfree(dev: cint, b: cuint) void {
-    const bp = bread(@intCast(@as(cuint, @intCast(dev))), bblock(b));
+fn bfree(dev: i32, b: u32) void {
+    const bp = bread(@intCast(@as(u32, @intCast(dev))), bblock(b));
     const bi = b % BPB;
-    const m: u8 = @intCast(@as(cuint, 1) << @intCast(bi % 8));
-    const idx: usize = @intCast(bi / 8);
+    const m: u8 = @intCast(@as(u32, 1) << @intCast(bi % 8));
+    const idx: u64 = @intCast(bi / 8);
     if ((bp.data[idx] & m) == 0) {
         panic("freeing free block");
     }
@@ -227,17 +225,17 @@ fn bfree(dev: cint, b: cuint) void {
 
 pub export fn iinit() void {
     initlock(&itable.lock, @constCast("itable"));
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NINODE) : (i += 1) {
         initsleeplock(&itable.inode[i].lock, @constCast("inode"));
     }
 }
 
-fn iget(dev: cuint, inum: cuint) *Inode {
+fn iget(dev: u32, inum: u32) *Inode {
     acquire(&itable.lock);
 
     var empty: ?*Inode = null;
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NINODE) : (i += 1) {
         const ip = &itable.inode[i];
         if (ip.ref > 0 and ip.dev == dev and ip.inum == inum) {
@@ -264,8 +262,8 @@ fn iget(dev: cuint, inum: cuint) *Inode {
     return ip;
 }
 
-pub export fn ialloc(dev: cuint, type_: i16) ?*Inode {
-    var inum: cuint = 1;
+pub export fn ialloc(dev: u32, type_: i16) ?*Inode {
+    var inum: u32 = 1;
     while (inum < sb.ninodes) : (inum += 1) {
         const bp = bread(dev, iblock(inum));
         const dip_base: [*]Dinode = @alignCast(@ptrCast(&bp.data));
@@ -280,7 +278,7 @@ pub export fn ialloc(dev: cuint, type_: i16) ?*Inode {
         brelse(bp);
     }
 
-    _ = printf("ialloc: no inodes %d\n", @as(cint, 0));
+    _ = printf("ialloc: no inodes %d\n", @as(i32, 0));
     return null;
 }
 
@@ -293,7 +291,7 @@ pub export fn iupdate(ip: *Inode) void {
     dip.minor = ip.minor;
     dip.nlink = ip.nlink;
     dip.size = ip.size;
-    _ = memmove(&dip.addrs, &ip.addrs, @sizeOf([NDIRECT + 1]cuint));
+    _ = memmove(&dip.addrs, &ip.addrs, @sizeOf([NDIRECT + 1]u32));
     log_write(bp);
     brelse(bp);
 }
@@ -321,7 +319,7 @@ pub export fn ilock(ip: *Inode) void {
         ip.minor = dip.minor;
         ip.nlink = dip.nlink;
         ip.size = dip.size;
-        _ = memmove(&ip.addrs, &dip.addrs, @sizeOf([NDIRECT + 1]cuint));
+        _ = memmove(&ip.addrs, &dip.addrs, @sizeOf([NDIRECT + 1]u32));
         brelse(bp);
         ip.valid = 1;
         if (ip.type == 0) {
@@ -362,16 +360,16 @@ pub export fn iunlockput(ip: *Inode) void {
     iput(ip);
 }
 
-pub export fn ireclaim(dev: cint) void {
-    var inum: cuint = 1;
+pub export fn ireclaim(dev: i32) void {
+    var inum: u32 = 1;
     while (inum < sb.ninodes) : (inum += 1) {
         var ip: ?*Inode = null;
-        const bp = bread(@intCast(@as(cuint, @intCast(dev))), iblock(inum));
+        const bp = bread(@intCast(@as(u32, @intCast(dev))), iblock(inum));
         const dip_base: [*]Dinode = @alignCast(@ptrCast(&bp.data));
         const dip = &dip_base[@intCast(inum % IPB)];
         if (dip.type != 0 and dip.nlink == 0) {
-            _ = printf("ireclaim: orphaned inode %d\n", @as(cint, @intCast(inum)));
-            ip = iget(@intCast(@as(cuint, @intCast(dev))), inum);
+            _ = printf("ireclaim: orphaned inode %d\n", @as(i32, @intCast(inum)));
+            ip = iget(@intCast(@as(u32, @intCast(dev))), inum);
         }
         brelse(bp);
         if (ip != null) {
@@ -384,7 +382,7 @@ pub export fn ireclaim(dev: cint) void {
     }
 }
 
-fn bmap(ip: *Inode, bn_in: cuint) cuint {
+fn bmap(ip: *Inode, bn_in: u32) u32 {
     var bn = bn_in;
 
     if (bn < NDIRECT) {
@@ -409,7 +407,7 @@ fn bmap(ip: *Inode, bn_in: cuint) cuint {
         }
 
         const bp = bread(ip.dev, ip.addrs[NDIRECT]);
-        const a: [*]cuint = @alignCast(@ptrCast(&bp.data));
+        const a: [*]u32 = @alignCast(@ptrCast(&bp.data));
         var addr = a[bn];
         if (addr == 0) {
             addr = balloc(ip.dev);
@@ -426,25 +424,25 @@ fn bmap(ip: *Inode, bn_in: cuint) cuint {
 }
 
 pub export fn itrunc(ip: *Inode) void {
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NDIRECT) : (i += 1) {
         if (ip.addrs[i] != 0) {
-            bfree(@intCast(@as(cuint, ip.dev)), ip.addrs[i]);
+            bfree(@intCast(@as(u32, ip.dev)), ip.addrs[i]);
             ip.addrs[i] = 0;
         }
     }
 
     if (ip.addrs[NDIRECT] != 0) {
         const bp = bread(ip.dev, ip.addrs[NDIRECT]);
-        const a: [*]cuint = @alignCast(@ptrCast(&bp.data));
-        var j: usize = 0;
+        const a: [*]u32 = @alignCast(@ptrCast(&bp.data));
+        var j: u64 = 0;
         while (j < NINDIRECT) : (j += 1) {
             if (a[j] != 0) {
-                bfree(@intCast(@as(cuint, ip.dev)), a[j]);
+                bfree(@intCast(@as(u32, ip.dev)), a[j]);
             }
         }
         brelse(bp);
-        bfree(@intCast(@as(cuint, ip.dev)), ip.addrs[NDIRECT]);
+        bfree(@intCast(@as(u32, ip.dev)), ip.addrs[NDIRECT]);
         ip.addrs[NDIRECT] = 0;
     }
 
@@ -460,11 +458,11 @@ pub export fn stati(ip: *Inode, st: *Stat) void {
     st.size = ip.size;
 }
 
-pub export fn readi(ip: *Inode, user_dst: cint, dst_in: u64, off_in: cuint, n_in: cuint) cint {
+pub export fn readi(ip: *Inode, user_dst: i32, dst_in: u64, off_in: u32, n_in: u32) i32 {
     var dst = dst_in;
     var off = off_in;
     var n = n_in;
-    var tot: cuint = 0;
+    var tot: u32 = 0;
 
     if (off > ip.size or off + n < off) {
         return 0;
@@ -493,10 +491,10 @@ pub export fn readi(ip: *Inode, user_dst: cint, dst_in: u64, off_in: cuint, n_in
     return @intCast(tot);
 }
 
-pub export fn writei(ip: *Inode, user_src: cint, src_in: u64, off_in: cuint, n: cuint) cint {
+pub export fn writei(ip: *Inode, user_src: i32, src_in: u64, off_in: u32, n: u32) i32 {
     var src = src_in;
     var off = off_in;
-    var tot: cuint = 0;
+    var tot: u32 = 0;
 
     if (off > ip.size or off + n < off) {
         return -1;
@@ -532,19 +530,19 @@ pub export fn writei(ip: *Inode, user_src: cint, src_in: u64, off_in: cuint, n: 
     return @intCast(tot);
 }
 
-pub export fn namecmp(s: [*c]const u8, t: [*c]const u8) cint {
+pub export fn namecmp(s: [*c]const u8, t: [*c]const u8) i32 {
     return strncmp(s, t, DIRSIZ);
 }
 
-pub export fn dirlookup(dp: *Inode, name: [*c]u8, poff: ?*cuint) ?*Inode {
+pub export fn dirlookup(dp: *Inode, name: [*c]u8, poff: ?*u32) ?*Inode {
     if (dp.type != T_DIR) {
         panic("dirlookup not DIR");
     }
 
-    var off: cuint = 0;
+    var off: u32 = 0;
     var de: Dirent = undefined;
     while (off < dp.size) : (off += @intCast(@sizeOf(Dirent))) {
-        if (readi(dp, 0, @intFromPtr(&de), off, @intCast(@sizeOf(Dirent))) != @as(cint, @intCast(@sizeOf(Dirent)))) {
+        if (readi(dp, 0, @intFromPtr(&de), off, @intCast(@sizeOf(Dirent))) != @as(i32, @intCast(@sizeOf(Dirent)))) {
             panic("dirlookup read");
         }
         if (de.inum == 0) {
@@ -561,17 +559,17 @@ pub export fn dirlookup(dp: *Inode, name: [*c]u8, poff: ?*cuint) ?*Inode {
     return null;
 }
 
-pub export fn dirlink(dp: *Inode, name: [*c]u8, inum: cuint) cint {
+pub export fn dirlink(dp: *Inode, name: [*c]u8, inum: u32) i32 {
     const existing = dirlookup(dp, name, null);
     if (existing != null) {
         iput(existing.?);
         return -1;
     }
 
-    var off: cint = 0;
+    var off: i32 = 0;
     var de: Dirent = undefined;
-    while (off < @as(cint, @intCast(dp.size))) : (off += @as(cint, @intCast(@sizeOf(Dirent)))) {
-        if (readi(dp, 0, @intFromPtr(&de), @intCast(@as(cuint, @intCast(off))), @intCast(@sizeOf(Dirent))) != @as(cint, @intCast(@sizeOf(Dirent)))) {
+    while (off < @as(i32, @intCast(dp.size))) : (off += @as(i32, @intCast(@sizeOf(Dirent)))) {
+        if (readi(dp, 0, @intFromPtr(&de), @intCast(@as(u32, @intCast(off))), @intCast(@sizeOf(Dirent))) != @as(i32, @intCast(@sizeOf(Dirent)))) {
             panic("dirlink read");
         }
         if (de.inum == 0) {
@@ -581,7 +579,7 @@ pub export fn dirlink(dp: *Inode, name: [*c]u8, inum: cuint) cint {
 
     _ = strncpy(@ptrCast(&de.name), name, DIRSIZ);
     de.inum = @intCast(inum);
-    if (writei(dp, 0, @intFromPtr(&de), @intCast(@as(cuint, @intCast(off))), @intCast(@sizeOf(Dirent))) != @as(cint, @intCast(@sizeOf(Dirent)))) {
+    if (writei(dp, 0, @intFromPtr(&de), @intCast(@as(u32, @intCast(off))), @intCast(@sizeOf(Dirent))) != @as(i32, @intCast(@sizeOf(Dirent)))) {
         return -1;
     }
     return 0;
@@ -601,7 +599,7 @@ fn skipelem(path_in: [*c]u8, name: [*c]u8) [*c]u8 {
         path += 1;
     }
 
-    const len: cuint = @intCast(@intFromPtr(path) - @intFromPtr(s));
+    const len: u32 = @intCast(@intFromPtr(path) - @intFromPtr(s));
     if (len >= DIRSIZ) {
         _ = memmove(name, s, DIRSIZ);
     } else {
@@ -615,7 +613,7 @@ fn skipelem(path_in: [*c]u8, name: [*c]u8) [*c]u8 {
     return path;
 }
 
-fn namex(path_in: [*c]u8, want_parent: cint, name: [*c]u8) ?*Inode {
+fn namex(path_in: [*c]u8, want_parent: i32, name: [*c]u8) ?*Inode {
     var ip: ?*Inode = null;
     var path = path_in;
 

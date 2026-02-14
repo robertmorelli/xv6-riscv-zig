@@ -1,43 +1,41 @@
 const std = @import("std");
 
-const cint = i32;
-const cuint = u32;
 
-const NDEV: usize = 10;
-const NFILE: usize = 100;
-const MAXOPBLOCKS: cint = 10;
-const BSIZE: cint = 1024;
+const NDEV: u64 = 10;
+const NFILE: u64 = 100;
+const MAXOPBLOCKS: i32 = 10;
+const BSIZE: i32 = 1024;
 
-const FD_NONE: cint = 0;
-const FD_PIPE: cint = 1;
-const FD_INODE: cint = 2;
-const FD_DEVICE: cint = 3;
+const FD_NONE: i32 = 0;
+const FD_PIPE: i32 = 1;
+const FD_INODE: i32 = 2;
+const FD_DEVICE: i32 = 3;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const File = extern struct {
-    type: cint,
-    ref: cint,
+    type: i32,
+    ref: i32,
     readable: u8,
     writable: u8,
     pipe: ?*anyopaque,
     ip: ?*anyopaque,
-    off: cuint,
+    off: u32,
     major: i16,
 };
 
 const Devsw = extern struct {
-    read: ?*const fn (cint, u64, cint) callconv(.c) cint,
-    write: ?*const fn (cint, u64, cint) callconv(.c) cint,
+    read: ?*const fn (i32, u64, i32) callconv(.c) i32,
+    write: ?*const fn (i32, u64, i32) callconv(.c) i32,
 };
 
 const Stat = extern struct {
-    dev: cint,
-    ino: cuint,
+    dev: i32,
+    ino: u32,
     type: i16,
     nlink: i16,
     size: u64,
@@ -45,11 +43,11 @@ const Stat = extern struct {
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*anyopaque,
     kstack: u64,
     sz: u64,
@@ -64,23 +62,23 @@ const FileTable = extern struct {
 pub export var devsw: [NDEV]Devsw = [_]Devsw{.{ .read = null, .write = null }} ** NDEV;
 var ftable: FileTable = std.mem.zeroes(FileTable);
 
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn pipeclose(pi: ?*anyopaque, writable: cint) callconv(.c) void;
-extern fn begin_op() callconv(.c) void;
-extern fn iput(ip: ?*anyopaque) callconv(.c) void;
-extern fn end_op() callconv(.c) void;
-extern fn myproc() callconv(.c) *Proc;
-extern fn ilock(ip: ?*anyopaque) callconv(.c) void;
-extern fn stati(ip: ?*anyopaque, st: *Stat) callconv(.c) void;
-extern fn iunlock(ip: ?*anyopaque) callconv(.c) void;
-extern fn copyout(pagetable: ?*anyopaque, dstva: u64, src: [*c]u8, len: u64) callconv(.c) cint;
-extern fn piperead(pi: ?*anyopaque, addr: u64, n: cint) callconv(.c) cint;
-extern fn readi(ip: ?*anyopaque, user_dst: cint, dst: u64, off: cuint, n: cuint) callconv(.c) cint;
-extern fn pipewrite(pi: ?*anyopaque, addr: u64, n: cint) callconv(.c) cint;
-extern fn writei(ip: ?*anyopaque, user_src: cint, src: u64, off: cuint, n: cuint) callconv(.c) cint;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn pipeclose(pi: ?*anyopaque, writable: i32) void;
+extern fn begin_op() void;
+extern fn iput(ip: ?*anyopaque) void;
+extern fn end_op() void;
+extern fn myproc() *Proc;
+extern fn ilock(ip: ?*anyopaque) void;
+extern fn stati(ip: ?*anyopaque, st: *Stat) void;
+extern fn iunlock(ip: ?*anyopaque) void;
+extern fn copyout(pagetable: ?*anyopaque, dstva: u64, src: [*c]u8, len: u64) i32;
+extern fn piperead(pi: ?*anyopaque, addr: u64, n: i32) i32;
+extern fn readi(ip: ?*anyopaque, user_dst: i32, dst: u64, off: u32, n: u32) i32;
+extern fn pipewrite(pi: ?*anyopaque, addr: u64, n: i32) i32;
+extern fn writei(ip: ?*anyopaque, user_src: i32, src: u64, off: u32, n: u32) i32;
 
 pub export fn fileinit() void {
     initlock(&ftable.lock, @constCast("ftable"));
@@ -88,7 +86,7 @@ pub export fn fileinit() void {
 
 pub export fn filealloc() ?*File {
     acquire(&ftable.lock);
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NFILE) : (i += 1) {
         if (ftable.file[i].ref == 0) {
             ftable.file[i].ref = 1;
@@ -136,7 +134,7 @@ pub export fn fileclose(f: *File) void {
     }
 }
 
-pub export fn filestat(f: *File, addr: u64) cint {
+pub export fn filestat(f: *File, addr: u64) i32 {
     const p = myproc();
     var st: Stat = undefined;
 
@@ -152,8 +150,8 @@ pub export fn filestat(f: *File, addr: u64) cint {
     return -1;
 }
 
-pub export fn fileread(f: *File, addr: u64, n: cint) cint {
-    var r: cint = 0;
+pub export fn fileread(f: *File, addr: u64, n: i32) i32 {
+    var r: i32 = 0;
 
     if (f.readable == 0) {
         return -1;
@@ -168,9 +166,9 @@ pub export fn fileread(f: *File, addr: u64, n: cint) cint {
         r = devsw[@intCast(f.major)].read.?(1, addr, n);
     } else if (f.type == FD_INODE) {
         ilock(f.ip);
-        r = readi(f.ip, 1, addr, f.off, @intCast(@as(cuint, @intCast(n))));
+        r = readi(f.ip, 1, addr, f.off, @intCast(@as(u32, @intCast(n))));
         if (r > 0) {
-            f.off += @intCast(@as(cuint, @intCast(r)));
+            f.off += @intCast(@as(u32, @intCast(r)));
         }
         iunlock(f.ip);
     } else {
@@ -180,9 +178,9 @@ pub export fn fileread(f: *File, addr: u64, n: cint) cint {
     return r;
 }
 
-pub export fn filewrite(f: *File, addr: u64, n: cint) cint {
-    var r: cint = 0;
-    var ret: cint = 0;
+pub export fn filewrite(f: *File, addr: u64, n: i32) i32 {
+    var r: i32 = 0;
+    var ret: i32 = 0;
 
     if (f.writable == 0) {
         return -1;
@@ -196,8 +194,8 @@ pub export fn filewrite(f: *File, addr: u64, n: cint) cint {
         }
         ret = devsw[@intCast(f.major)].write.?(1, addr, n);
     } else if (f.type == FD_INODE) {
-        const max: cint = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * BSIZE;
-        var i: cint = 0;
+        const max: i32 = ((MAXOPBLOCKS - 1 - 1 - 2) / 2) * BSIZE;
+        var i: i32 = 0;
         while (i < n) {
             var n1 = n - i;
             if (n1 > max) {
@@ -206,9 +204,9 @@ pub export fn filewrite(f: *File, addr: u64, n: cint) cint {
 
             begin_op();
             ilock(f.ip);
-            r = writei(f.ip, 1, addr + @as(u64, @intCast(@as(cuint, @intCast(i)))), f.off, @intCast(@as(cuint, @intCast(n1))));
+            r = writei(f.ip, 1, addr + @as(u64, @intCast(@as(u32, @intCast(i)))), f.off, @intCast(@as(u32, @intCast(n1))));
             if (r > 0) {
-                f.off += @intCast(@as(cuint, @intCast(r)));
+                f.off += @intCast(@as(u32, @intCast(r)));
             }
             iunlock(f.ip);
             end_op();

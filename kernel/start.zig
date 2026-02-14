@@ -1,8 +1,8 @@
-const NCPU: usize = 8;
+const NCPU: u64 = 8;
 
 pub export var stack0: [4096 * NCPU]u8 align(16) = undefined;
 
-extern fn main() callconv(.c) noreturn;
+extern fn main() noreturn;
 
 inline fn r_mhartid() u64 {
     return asm volatile ("csrr %[result], mhartid"
@@ -144,7 +144,7 @@ fn timerinit() void {
     w_stimecmp(r_time() + 1_000_000);
 }
 
-pub export fn start() callconv(.c) noreturn {
+pub export fn start() noreturn {
     var x = r_mstatus();
     x &= ~(@as(u64, 3) << 11);
     x |= (@as(u64, 1) << 11);

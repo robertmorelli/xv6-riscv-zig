@@ -23,8 +23,8 @@ fn wc(fd: i32, name: [*:0]const u8) void {
             break;
         }
 
-        var i: usize = 0;
-        const n_usize: usize = @intCast(n);
+        var i: u64 = 0;
+        const n_usize: u64 = @intCast(n);
         while (i < n_usize) : (i += 1) {
             const ch = buf[i];
             c += 1;
@@ -44,8 +44,8 @@ fn wc(fd: i32, name: [*:0]const u8) void {
 }
 
 pub export fn main(argc: i32, argv: [*][*:0]u8) i32 {
-    var i: usize = 1;
-    const n: usize = @intCast(argc);
+    var i: u64 = 1;
+    const n: u64 = @intCast(argc);
 
     if (argc <= 1) {
         wc(0, "");

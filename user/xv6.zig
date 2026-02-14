@@ -11,7 +11,7 @@ pub const CONSOLE: i16 = 1;
 pub const SBRK_EAGER: i32 = 1;
 pub const SBRK_LAZY: i32 = 2;
 
-pub const DIRSIZ: usize = 14;
+pub const DIRSIZ: u64 = 14;
 
 pub const Stat = extern struct {
     dev: i32,

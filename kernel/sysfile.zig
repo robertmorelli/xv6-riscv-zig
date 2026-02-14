@@ -1,63 +1,61 @@
-const cint = i32;
-const cuint = u32;
 
-const NOFILE: usize = 16;
-const NDEV: cint = 10;
-const MAXARG: usize = 32;
-const MAXPATH: cint = 128;
-const PGSIZE: cint = 4096;
-const DIRSIZ: usize = 14;
+const NOFILE: u64 = 16;
+const NDEV: i32 = 10;
+const MAXARG: u64 = 32;
+const MAXPATH: i32 = 128;
+const PGSIZE: i32 = 4096;
+const DIRSIZ: u64 = 14;
 
 const T_DIR: i16 = 1;
 const T_FILE: i16 = 2;
 const T_DEVICE: i16 = 3;
 
-const O_RDONLY: cint = 0x000;
-const O_WRONLY: cint = 0x001;
-const O_RDWR: cint = 0x002;
-const O_CREATE: cint = 0x200;
-const O_TRUNC: cint = 0x400;
+const O_RDONLY: i32 = 0x000;
+const O_WRONLY: i32 = 0x001;
+const O_RDWR: i32 = 0x002;
+const O_CREATE: i32 = 0x200;
+const O_TRUNC: i32 = 0x400;
 
-const FD_DEVICE: cint = 3;
-const FD_INODE: cint = 2;
+const FD_DEVICE: i32 = 3;
+const FD_INODE: i32 = 2;
 
-const NDIRECT: usize = 12;
+const NDIRECT: u64 = 12;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Sleeplock = extern struct {
-    locked: cuint,
+    locked: u32,
     lk: Spinlock,
     name: [*c]u8,
-    pid: cint,
+    pid: i32,
 };
 
 const Inode = extern struct {
-    dev: cuint,
-    inum: cuint,
-    ref: cint,
+    dev: u32,
+    inum: u32,
+    ref: i32,
     lock: Sleeplock,
-    valid: cint,
+    valid: i32,
     type: i16,
     major: i16,
     minor: i16,
     nlink: i16,
-    size: cuint,
-    addrs: [NDIRECT + 1]cuint,
+    size: u32,
+    addrs: [NDIRECT + 1]u32,
 };
 
 const File = extern struct {
-    type: cint,
-    ref: cint,
+    type: i32,
+    ref: i32,
     readable: u8,
     writable: u8,
     pipe: ?*anyopaque,
     ip: ?*Inode,
-    off: cuint,
+    off: u32,
     major: i16,
 };
 
@@ -80,11 +78,11 @@ const Context = extern struct {
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*Proc,
     kstack: u64,
     sz: u64,
@@ -101,57 +99,57 @@ const Dirent = extern struct {
     name: [DIRSIZ]u8,
 };
 
-extern fn argint(n: cint, ip: *cint) callconv(.c) void;
-extern fn argaddr(n: cint, ip: *u64) callconv(.c) void;
-extern fn argstr(n: cint, buf: [*c]u8, max: cint) callconv(.c) cint;
-extern fn fetchaddr(addr: u64, ip: *u64) callconv(.c) cint;
-extern fn fetchstr(addr: u64, buf: [*c]u8, max: cint) callconv(.c) cint;
+extern fn argint(n: i32, ip: *i32) void;
+extern fn argaddr(n: i32, ip: *u64) void;
+extern fn argstr(n: i32, buf: [*c]u8, max: i32) i32;
+extern fn fetchaddr(addr: u64, ip: *u64) i32;
+extern fn fetchstr(addr: u64, buf: [*c]u8, max: i32) i32;
 
-extern fn myproc() callconv(.c) *Proc;
+extern fn myproc() *Proc;
 
-extern fn filedup(f: *File) callconv(.c) *File;
-extern fn fileread(f: *File, addr: u64, n: cint) callconv(.c) cint;
-extern fn filewrite(f: *File, addr: u64, n: cint) callconv(.c) cint;
-extern fn fileclose(f: *File) callconv(.c) void;
-extern fn filestat(f: *File, addr: u64) callconv(.c) cint;
-extern fn filealloc() callconv(.c) ?*File;
-extern fn pipealloc(f0: *?*File, f1: *?*File) callconv(.c) cint;
+extern fn filedup(f: *File) *File;
+extern fn fileread(f: *File, addr: u64, n: i32) i32;
+extern fn filewrite(f: *File, addr: u64, n: i32) i32;
+extern fn fileclose(f: *File) void;
+extern fn filestat(f: *File, addr: u64) i32;
+extern fn filealloc() ?*File;
+extern fn pipealloc(f0: *?*File, f1: *?*File) i32;
 
-extern fn begin_op() callconv(.c) void;
-extern fn end_op() callconv(.c) void;
-extern fn namei(path: [*c]u8) callconv(.c) ?*Inode;
-extern fn nameiparent(path: [*c]u8, name: [*c]u8) callconv(.c) ?*Inode;
-extern fn ilock(ip: *Inode) callconv(.c) void;
-extern fn iunlock(ip: *Inode) callconv(.c) void;
-extern fn iunlockput(ip: *Inode) callconv(.c) void;
-extern fn iput(ip: *Inode) callconv(.c) void;
-extern fn iupdate(ip: *Inode) callconv(.c) void;
-extern fn dirlookup(dp: *Inode, name: [*c]u8, poff: ?*cuint) callconv(.c) ?*Inode;
-extern fn dirlink(dp: *Inode, name: [*c]u8, inum: cuint) callconv(.c) cint;
-extern fn readi(ip: *Inode, user_dst: cint, dst: u64, off: cuint, n: cuint) callconv(.c) cint;
-extern fn writei(ip: *Inode, user_src: cint, src: u64, off: cuint, n: cuint) callconv(.c) cint;
-extern fn ialloc(dev: cuint, type_: i16) callconv(.c) ?*Inode;
-extern fn itrunc(ip: *Inode) callconv(.c) void;
+extern fn begin_op() void;
+extern fn end_op() void;
+extern fn namei(path: [*c]u8) ?*Inode;
+extern fn nameiparent(path: [*c]u8, name: [*c]u8) ?*Inode;
+extern fn ilock(ip: *Inode) void;
+extern fn iunlock(ip: *Inode) void;
+extern fn iunlockput(ip: *Inode) void;
+extern fn iput(ip: *Inode) void;
+extern fn iupdate(ip: *Inode) void;
+extern fn dirlookup(dp: *Inode, name: [*c]u8, poff: ?*u32) ?*Inode;
+extern fn dirlink(dp: *Inode, name: [*c]u8, inum: u32) i32;
+extern fn readi(ip: *Inode, user_dst: i32, dst: u64, off: u32, n: u32) i32;
+extern fn writei(ip: *Inode, user_src: i32, src: u64, off: u32, n: u32) i32;
+extern fn ialloc(dev: u32, type_: i16) ?*Inode;
+extern fn itrunc(ip: *Inode) void;
 
-extern fn namecmp(s: [*c]u8, t: [*c]const u8) callconv(.c) cint;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn memset(dst: ?*anyopaque, c: cint, n: cuint) callconv(.c) ?*anyopaque;
+extern fn namecmp(s: [*c]u8, t: [*c]const u8) i32;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn memset(dst: ?*anyopaque, c: i32, n: u32) ?*anyopaque;
 
-extern fn kalloc() callconv(.c) ?*anyopaque;
-extern fn kfree(pa: ?*anyopaque) callconv(.c) void;
-extern fn kexec(path: [*c]u8, argv: [*c][*c]u8) callconv(.c) cint;
-extern fn copyout(pagetable: ?*anyopaque, dstva: u64, src: [*c]u8, len: u64) callconv(.c) cint;
+extern fn kalloc() ?*anyopaque;
+extern fn kfree(pa: ?*anyopaque) void;
+extern fn kexec(path: [*c]u8, argv: [*c][*c]u8) i32;
+extern fn copyout(pagetable: ?*anyopaque, dstva: u64, src: [*c]u8, len: u64) i32;
 
 inline fn uerr() u64 {
     return ~@as(u64, 0);
 }
 
-fn argfd(n: cint, pfd: ?*cint, pf: ?*?*File) cint {
-    var fd: cint = 0;
+fn argfd(n: i32, pfd: ?*i32, pf: ?*?*File) i32 {
+    var fd: i32 = 0;
     argint(n, &fd);
 
     const p = myproc();
-    if (fd < 0 or fd >= @as(cint, @intCast(NOFILE)) or p.ofile[@intCast(fd)] == null) {
+    if (fd < 0 or fd >= @as(i32, @intCast(NOFILE)) or p.ofile[@intCast(fd)] == null) {
         return -1;
     }
 
@@ -164,9 +162,9 @@ fn argfd(n: cint, pfd: ?*cint, pf: ?*?*File) cint {
     return 0;
 }
 
-fn fdalloc(f: *File) cint {
+fn fdalloc(f: *File) i32 {
     const p = myproc();
-    var fd: usize = 0;
+    var fd: u64 = 0;
     while (fd < NOFILE) : (fd += 1) {
         if (p.ofile[fd] == null) {
             p.ofile[fd] = f;
@@ -186,12 +184,12 @@ pub export fn sys_dup() u64 {
         return uerr();
     }
     _ = filedup(f.?);
-    return @intCast(@as(cuint, @intCast(fd)));
+    return @intCast(@as(u32, @intCast(fd)));
 }
 
 pub export fn sys_read() u64 {
     var f: ?*File = null;
-    var n: cint = 0;
+    var n: i32 = 0;
     var p: u64 = 0;
 
     argaddr(1, &p);
@@ -204,7 +202,7 @@ pub export fn sys_read() u64 {
 
 pub export fn sys_write() u64 {
     var f: ?*File = null;
-    var n: cint = 0;
+    var n: i32 = 0;
     var p: u64 = 0;
 
     argaddr(1, &p);
@@ -216,7 +214,7 @@ pub export fn sys_write() u64 {
 }
 
 pub export fn sys_close() u64 {
-    var fd: cint = 0;
+    var fd: i32 = 0;
     var f: ?*File = null;
 
     if (argfd(0, &fd, &f) < 0) {
@@ -240,8 +238,8 @@ pub export fn sys_fstat() u64 {
 
 pub export fn sys_link() u64 {
     var name: [DIRSIZ]u8 = undefined;
-    var new: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
-    var old: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
+    var new: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
+    var old: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
     var dp: ?*Inode = null;
     var ip: ?*Inode = null;
 
@@ -293,11 +291,11 @@ pub export fn sys_link() u64 {
     return 0;
 }
 
-fn isdirempty(dp: *Inode) cint {
-    var off: cuint = @intCast(2 * @sizeOf(Dirent));
+fn isdirempty(dp: *Inode) i32 {
+    var off: u32 = @intCast(2 * @sizeOf(Dirent));
     var de: Dirent = undefined;
     while (off < dp.size) : (off +%= @intCast(@sizeOf(Dirent))) {
-        if (readi(dp, 0, @intFromPtr(&de), off, @intCast(@sizeOf(Dirent))) != @as(cint, @intCast(@sizeOf(Dirent)))) {
+        if (readi(dp, 0, @intFromPtr(&de), off, @intCast(@sizeOf(Dirent))) != @as(i32, @intCast(@sizeOf(Dirent)))) {
             panic("isdirempty: readi");
         }
         if (de.inum != 0) {
@@ -312,8 +310,8 @@ pub export fn sys_unlink() u64 {
     var dp: ?*Inode = null;
     var de: Dirent = undefined;
     var name: [DIRSIZ]u8 = undefined;
-    var path: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
-    var off: cuint = 0;
+    var path: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
+    var off: u32 = 0;
 
     if (argstr(0, @ptrCast(&path), MAXPATH) < 0) {
         return uerr();
@@ -353,7 +351,7 @@ pub export fn sys_unlink() u64 {
     }
 
     _ = memset(&de, 0, @intCast(@sizeOf(Dirent)));
-    if (writei(dp.?, 0, @intFromPtr(&de), off, @intCast(@sizeOf(Dirent))) != @as(cint, @intCast(@sizeOf(Dirent)))) {
+    if (writei(dp.?, 0, @intFromPtr(&de), off, @intCast(@sizeOf(Dirent))) != @as(i32, @intCast(@sizeOf(Dirent)))) {
         panic("unlink: writei");
     }
     if (ip.?.type == T_DIR) {
@@ -429,8 +427,8 @@ fn create(path: [*c]u8, type_: i16, major: i16, minor: i16) ?*Inode {
 }
 
 pub export fn sys_open() u64 {
-    var path: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
-    var omode: cint = 0;
+    var path: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
+    var omode: i32 = 0;
     var f: ?*File = null;
     var ip: ?*Inode = null;
 
@@ -495,11 +493,11 @@ pub export fn sys_open() u64 {
 
     iunlock(ip.?);
     end_op();
-    return @intCast(@as(cuint, @intCast(fd)));
+    return @intCast(@as(u32, @intCast(fd)));
 }
 
 pub export fn sys_mkdir() u64 {
-    var path: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
+    var path: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
     var ip: ?*Inode = null;
 
     begin_op();
@@ -518,9 +516,9 @@ pub export fn sys_mkdir() u64 {
 }
 
 pub export fn sys_mknod() u64 {
-    var path: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
-    var major: cint = 0;
-    var minor: cint = 0;
+    var path: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
+    var major: i32 = 0;
+    var minor: i32 = 0;
 
     begin_op();
     argint(1, &major);
@@ -536,7 +534,7 @@ pub export fn sys_mknod() u64 {
 }
 
 pub export fn sys_chdir() u64 {
-    var path: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
+    var path: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
     const p = myproc();
 
     begin_op();
@@ -559,7 +557,7 @@ pub export fn sys_chdir() u64 {
 }
 
 pub export fn sys_exec() u64 {
-    var path: [@as(usize, @intCast(MAXPATH))]u8 = undefined;
+    var path: [@as(u64, @intCast(MAXPATH))]u8 = undefined;
     var argv: [MAXARG][*c]u8 = undefined;
     var uargv: u64 = 0;
     var uarg: u64 = 0;
@@ -571,10 +569,10 @@ pub export fn sys_exec() u64 {
 
     _ = memset(@ptrCast(&argv), 0, @intCast(@sizeOf(@TypeOf(argv))));
 
-    var i: usize = 0;
+    var i: u64 = 0;
     while (true) : (i += 1) {
         if (i >= argv.len) {
-            var j: usize = 0;
+            var j: u64 = 0;
             while (j < argv.len and argv[j] != null) : (j += 1) {
                 kfree(argv[j]);
             }
@@ -582,7 +580,7 @@ pub export fn sys_exec() u64 {
         }
 
         if (fetchaddr(uargv + @as(u64, @intCast(@sizeOf(u64) * i)), &uarg) < 0) {
-            var j: usize = 0;
+            var j: u64 = 0;
             while (j < argv.len and argv[j] != null) : (j += 1) {
                 kfree(argv[j]);
             }
@@ -596,7 +594,7 @@ pub export fn sys_exec() u64 {
 
         const mem = kalloc();
         if (mem == null) {
-            var j: usize = 0;
+            var j: u64 = 0;
             while (j < argv.len and argv[j] != null) : (j += 1) {
                 kfree(argv[j]);
             }
@@ -605,7 +603,7 @@ pub export fn sys_exec() u64 {
 
         argv[i] = @ptrCast(mem.?);
         if (fetchstr(uarg, argv[i], PGSIZE) < 0) {
-            var j: usize = 0;
+            var j: u64 = 0;
             while (j < argv.len and argv[j] != null) : (j += 1) {
                 kfree(argv[j]);
             }
@@ -627,8 +625,8 @@ pub export fn sys_pipe() u64 {
     var fdarray: u64 = 0;
     var rf: ?*File = null;
     var wf: ?*File = null;
-    var fd0: cint = -1;
-    var fd1: cint = -1;
+    var fd0: i32 = -1;
+    var fd1: i32 = -1;
     const p = myproc();
 
     argaddr(0, &fdarray);
@@ -649,8 +647,8 @@ pub export fn sys_pipe() u64 {
         return uerr();
     }
 
-    if (copyout(p.pagetable, fdarray, @ptrCast(&fd0), @sizeOf(cint)) < 0 or
-        copyout(p.pagetable, fdarray + @as(u64, @intCast(@sizeOf(cint))), @ptrCast(&fd1), @sizeOf(cint)) < 0)
+    if (copyout(p.pagetable, fdarray, @ptrCast(&fd0), @sizeOf(i32)) < 0 or
+        copyout(p.pagetable, fdarray + @as(u64, @intCast(@sizeOf(i32))), @ptrCast(&fd1), @sizeOf(i32)) < 0)
     {
         p.ofile[@intCast(fd0)] = null;
         p.ofile[@intCast(fd1)] = null;

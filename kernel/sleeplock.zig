@@ -1,34 +1,32 @@
-const cint = i32;
-const cuint = u32;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Sleeplock = extern struct {
-    locked: cuint,
+    locked: u32,
     lk: Spinlock,
     name: [*c]u8,
-    pid: cint,
+    pid: i32,
 };
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
 };
 
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) callconv(.c) void;
-extern fn wakeup(chan: ?*anyopaque) callconv(.c) void;
-extern fn myproc() callconv(.c) *Proc;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) void;
+extern fn wakeup(chan: ?*anyopaque) void;
+extern fn myproc() *Proc;
 
 pub export fn initsleeplock(lk: *Sleeplock, name: [*c]u8) void {
     initlock(&lk.lk, @constCast("sleep lock"));
@@ -55,7 +53,7 @@ pub export fn releasesleep(lk: *Sleeplock) void {
     release(&lk.lk);
 }
 
-pub export fn holdingsleep(lk: *Sleeplock) cint {
+pub export fn holdingsleep(lk: *Sleeplock) i32 {
     acquire(&lk.lk);
     const held = lk.locked != 0 and lk.pid == myproc().pid;
     release(&lk.lk);

@@ -1,11 +1,9 @@
-const cint = i32;
-const cuint = u32;
 
-const NOFILE: usize = 16;
+const NOFILE: u64 = 16;
 const PGSIZE: u64 = 4096;
 const MAXVA: u64 = (@as(u64, 1) << 38);
 const TRAPFRAME: u64 = MAXVA - PGSIZE * 2;
-const SBRK_EAGER: cint = 1;
+const SBRK_EAGER: i32 = 1;
 
 const Context = extern struct {
     ra: u64,
@@ -25,18 +23,18 @@ const Context = extern struct {
 };
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*Proc,
     kstack: u64,
     sz: u64,
@@ -48,24 +46,24 @@ const Proc = extern struct {
     name: [16]u8,
 };
 
-extern fn argint(n: cint, ip: *cint) callconv(.c) void;
-extern fn argaddr(n: cint, ip: *u64) callconv(.c) void;
-extern fn kexit(status: cint) callconv(.c) void;
-extern fn myproc() callconv(.c) *Proc;
-extern fn kfork() callconv(.c) cint;
-extern fn kwait(status_addr: u64) callconv(.c) cint;
-extern fn growproc(n: cint) callconv(.c) cint;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn killed(p: *Proc) callconv(.c) cint;
-extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) callconv(.c) void;
-extern fn kkill(pid: cint) callconv(.c) cint;
+extern fn argint(n: i32, ip: *i32) void;
+extern fn argaddr(n: i32, ip: *u64) void;
+extern fn kexit(status: i32) void;
+extern fn myproc() *Proc;
+extern fn kfork() i32;
+extern fn kwait(status_addr: u64) i32;
+extern fn growproc(n: i32) i32;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn killed(p: *Proc) i32;
+extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) void;
+extern fn kkill(pid: i32) i32;
 
-extern var ticks: cuint;
+extern var ticks: u32;
 extern var tickslock: Spinlock;
 
 pub export fn sys_exit() u64 {
-    var n: cint = 0;
+    var n: i32 = 0;
     argint(0, &n);
     kexit(n);
     return 0;
@@ -86,8 +84,8 @@ pub export fn sys_wait() u64 {
 }
 
 pub export fn sys_sbrk() u64 {
-    var n: cint = 0;
-    var t: cint = 0;
+    var n: i32 = 0;
+    var t: i32 = 0;
     argint(0, &n);
     argint(1, &t);
 
@@ -99,7 +97,7 @@ pub export fn sys_sbrk() u64 {
             return ~@as(u64, 0);
         }
     } else {
-        const n_u64: u64 = @intCast(@as(cuint, @intCast(n)));
+        const n_u64: u64 = @intCast(@as(u32, @intCast(n)));
         if (addr + n_u64 < addr) {
             return ~@as(u64, 0);
         }
@@ -113,7 +111,7 @@ pub export fn sys_sbrk() u64 {
 }
 
 pub export fn sys_pause() u64 {
-    var n: cint = 0;
+    var n: i32 = 0;
     argint(0, &n);
     if (n < 0) {
         n = 0;
@@ -121,7 +119,7 @@ pub export fn sys_pause() u64 {
 
     acquire(&tickslock);
     const ticks0 = ticks;
-    while (ticks - ticks0 < @as(cuint, @intCast(n))) {
+    while (ticks - ticks0 < @as(u32, @intCast(n))) {
         if (killed(myproc()) != 0) {
             release(&tickslock);
             return ~@as(u64, 0);
@@ -133,7 +131,7 @@ pub export fn sys_pause() u64 {
 }
 
 pub export fn sys_kill() u64 {
-    var pid: cint = 0;
+    var pid: i32 = 0;
     argint(0, &pid);
     return @intCast(kkill(pid));
 }

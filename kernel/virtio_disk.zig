@@ -1,37 +1,35 @@
 const std = @import("std");
 
-const cint = i32;
-const cuint = u32;
 
-const PGSIZE: cuint = 4096;
-const BSIZE: cuint = 1024;
-const VIRTIO0: usize = 0x10001000;
+const PGSIZE: u32 = 4096;
+const BSIZE: u32 = 1024;
+const VIRTIO0: u64 = 0x10001000;
 
-const VIRTIO_MMIO_MAGIC_VALUE: usize = 0x000;
-const VIRTIO_MMIO_VERSION: usize = 0x004;
-const VIRTIO_MMIO_DEVICE_ID: usize = 0x008;
-const VIRTIO_MMIO_VENDOR_ID: usize = 0x00c;
-const VIRTIO_MMIO_DEVICE_FEATURES: usize = 0x010;
-const VIRTIO_MMIO_DRIVER_FEATURES: usize = 0x020;
-const VIRTIO_MMIO_QUEUE_SEL: usize = 0x030;
-const VIRTIO_MMIO_QUEUE_NUM_MAX: usize = 0x034;
-const VIRTIO_MMIO_QUEUE_NUM: usize = 0x038;
-const VIRTIO_MMIO_QUEUE_READY: usize = 0x044;
-const VIRTIO_MMIO_QUEUE_NOTIFY: usize = 0x050;
-const VIRTIO_MMIO_INTERRUPT_STATUS: usize = 0x060;
-const VIRTIO_MMIO_INTERRUPT_ACK: usize = 0x064;
-const VIRTIO_MMIO_STATUS: usize = 0x070;
-const VIRTIO_MMIO_QUEUE_DESC_LOW: usize = 0x080;
-const VIRTIO_MMIO_QUEUE_DESC_HIGH: usize = 0x084;
-const VIRTIO_MMIO_DRIVER_DESC_LOW: usize = 0x090;
-const VIRTIO_MMIO_DRIVER_DESC_HIGH: usize = 0x094;
-const VIRTIO_MMIO_DEVICE_DESC_LOW: usize = 0x0a0;
-const VIRTIO_MMIO_DEVICE_DESC_HIGH: usize = 0x0a4;
+const VIRTIO_MMIO_MAGIC_VALUE: u64 = 0x000;
+const VIRTIO_MMIO_VERSION: u64 = 0x004;
+const VIRTIO_MMIO_DEVICE_ID: u64 = 0x008;
+const VIRTIO_MMIO_VENDOR_ID: u64 = 0x00c;
+const VIRTIO_MMIO_DEVICE_FEATURES: u64 = 0x010;
+const VIRTIO_MMIO_DRIVER_FEATURES: u64 = 0x020;
+const VIRTIO_MMIO_QUEUE_SEL: u64 = 0x030;
+const VIRTIO_MMIO_QUEUE_NUM_MAX: u64 = 0x034;
+const VIRTIO_MMIO_QUEUE_NUM: u64 = 0x038;
+const VIRTIO_MMIO_QUEUE_READY: u64 = 0x044;
+const VIRTIO_MMIO_QUEUE_NOTIFY: u64 = 0x050;
+const VIRTIO_MMIO_INTERRUPT_STATUS: u64 = 0x060;
+const VIRTIO_MMIO_INTERRUPT_ACK: u64 = 0x064;
+const VIRTIO_MMIO_STATUS: u64 = 0x070;
+const VIRTIO_MMIO_QUEUE_DESC_LOW: u64 = 0x080;
+const VIRTIO_MMIO_QUEUE_DESC_HIGH: u64 = 0x084;
+const VIRTIO_MMIO_DRIVER_DESC_LOW: u64 = 0x090;
+const VIRTIO_MMIO_DRIVER_DESC_HIGH: u64 = 0x094;
+const VIRTIO_MMIO_DEVICE_DESC_LOW: u64 = 0x0a0;
+const VIRTIO_MMIO_DEVICE_DESC_HIGH: u64 = 0x0a4;
 
-const VIRTIO_CONFIG_S_ACKNOWLEDGE: cuint = 1;
-const VIRTIO_CONFIG_S_DRIVER: cuint = 2;
-const VIRTIO_CONFIG_S_DRIVER_OK: cuint = 4;
-const VIRTIO_CONFIG_S_FEATURES_OK: cuint = 8;
+const VIRTIO_CONFIG_S_ACKNOWLEDGE: u32 = 1;
+const VIRTIO_CONFIG_S_DRIVER: u32 = 2;
+const VIRTIO_CONFIG_S_DRIVER_OK: u32 = 4;
+const VIRTIO_CONFIG_S_FEATURES_OK: u32 = 8;
 
 const VIRTIO_BLK_F_RO: u6 = 5;
 const VIRTIO_BLK_F_SCSI: u6 = 7;
@@ -41,7 +39,7 @@ const VIRTIO_F_ANY_LAYOUT: u6 = 27;
 const VIRTIO_RING_F_INDIRECT_DESC: u6 = 28;
 const VIRTIO_RING_F_EVENT_IDX: u6 = 29;
 
-const NUM: usize = 8;
+const NUM: u64 = 8;
 const VRING_DESC_F_NEXT: u16 = 1;
 const VRING_DESC_F_WRITE: u16 = 2;
 
@@ -49,25 +47,25 @@ const VIRTIO_BLK_T_IN: u32 = 0;
 const VIRTIO_BLK_T_OUT: u32 = 1;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Sleeplock = extern struct {
-    locked: cuint,
+    locked: u32,
     lk: Spinlock,
     name: [*c]u8,
-    pid: cint,
+    pid: i32,
 };
 
 const Buf = extern struct {
-    valid: cint,
-    disk: cint,
-    dev: cuint,
-    blockno: cuint,
+    valid: i32,
+    disk: i32,
+    dev: u32,
+    blockno: u32,
     lock: Sleeplock,
-    refcnt: cuint,
+    refcnt: u32,
     prev: ?*Buf,
     next: ?*Buf,
     data: [BSIZE]u8,
@@ -122,24 +120,24 @@ const Disk = extern struct {
 
 var disk: Disk = std.mem.zeroes(Disk);
 
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn kalloc() callconv(.c) ?*anyopaque;
-extern fn memset(dst: ?*anyopaque, c: cint, n: cuint) callconv(.c) ?*anyopaque;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn wakeup(chan: ?*anyopaque) callconv(.c) void;
-extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) callconv(.c) void;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn kalloc() ?*anyopaque;
+extern fn memset(dst: ?*anyopaque, c: i32, n: u32) ?*anyopaque;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn wakeup(chan: ?*anyopaque) void;
+extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) void;
 
-inline fn regPtr(offset: usize) *volatile u32 {
+inline fn regPtr(offset: u64) *volatile u32 {
     return @as(*volatile u32, @ptrFromInt(VIRTIO0 + offset));
 }
 
-inline fn regRead(offset: usize) u32 {
+inline fn regRead(offset: u64) u32 {
     return regPtr(offset).*;
 }
 
-inline fn regWrite(offset: usize, value: u32) void {
+inline fn regWrite(offset: u64, value: u32) void {
     regPtr(offset).* = value;
 }
 
@@ -227,7 +225,7 @@ pub export fn virtio_disk_init() void {
 
     regWrite(VIRTIO_MMIO_QUEUE_READY, 1);
 
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < NUM) : (i += 1) {
         disk.free[i] = 1;
     }
@@ -236,8 +234,8 @@ pub export fn virtio_disk_init() void {
     regWrite(VIRTIO_MMIO_STATUS, status);
 }
 
-fn alloc_desc() cint {
-    var i: usize = 0;
+fn alloc_desc() i32 {
+    var i: u64 = 0;
     while (i < NUM) : (i += 1) {
         if (disk.free[i] != 0) {
             disk.free[i] = 0;
@@ -247,11 +245,11 @@ fn alloc_desc() cint {
     return -1;
 }
 
-fn free_desc(i: cint) void {
+fn free_desc(i: i32) void {
     if (i >= NUM) {
         panic("free_desc 1");
     }
-    const idx: usize = @intCast(i);
+    const idx: u64 = @intCast(i);
     if (disk.free[idx] != 0) {
         panic("free_desc 2");
     }
@@ -263,12 +261,12 @@ fn free_desc(i: cint) void {
     wakeup(@ptrCast(&disk.free[0]));
 }
 
-fn free_chain(head_idx: cint) void {
+fn free_chain(head_idx: i32) void {
     var i = head_idx;
     while (true) {
-        const idx: usize = @intCast(i);
+        const idx: u64 = @intCast(i);
         const flag = disk.desc.?[idx].flags;
-        const nxt: cint = @intCast(disk.desc.?[idx].next);
+        const nxt: i32 = @intCast(disk.desc.?[idx].next);
         free_desc(i);
         if ((flag & VRING_DESC_F_NEXT) != 0) {
             i = nxt;
@@ -278,12 +276,12 @@ fn free_chain(head_idx: cint) void {
     }
 }
 
-fn alloc3_desc(idx: *[3]cint) cint {
-    var i: usize = 0;
+fn alloc3_desc(idx: *[3]i32) i32 {
+    var i: u64 = 0;
     while (i < 3) : (i += 1) {
         idx[i] = alloc_desc();
         if (idx[i] < 0) {
-            var j: usize = 0;
+            var j: u64 = 0;
             while (j < i) : (j += 1) {
                 free_desc(idx[j]);
             }
@@ -293,17 +291,17 @@ fn alloc3_desc(idx: *[3]cint) cint {
     return 0;
 }
 
-pub export fn virtio_disk_rw(b: *Buf, write: cint) void {
+pub export fn virtio_disk_rw(b: *Buf, write: i32) void {
     const sector = @as(u64, @intCast(b.blockno)) * (BSIZE / 512);
 
     acquire(&disk.vdisk_lock);
 
-    var idx: [3]cint = undefined;
+    var idx: [3]i32 = undefined;
     while (alloc3_desc(&idx) != 0) {
         sleep(@ptrCast(&disk.free[0]), &disk.vdisk_lock);
     }
 
-    const head: usize = @intCast(idx[0]);
+    const head: u64 = @intCast(idx[0]);
     const buf0 = &disk.ops[head];
     if (write != 0) {
         buf0.type = VIRTIO_BLK_T_OUT;
@@ -318,7 +316,7 @@ pub export fn virtio_disk_rw(b: *Buf, write: cint) void {
     disk.desc.?[head].flags = VRING_DESC_F_NEXT;
     disk.desc.?[head].next = @intCast(idx[1]);
 
-    const mid: usize = @intCast(idx[1]);
+    const mid: u64 = @intCast(idx[1]);
     disk.desc.?[mid].addr = @intFromPtr(&b.data);
     disk.desc.?[mid].len = BSIZE;
     if (write != 0) {
@@ -330,7 +328,7 @@ pub export fn virtio_disk_rw(b: *Buf, write: cint) void {
     disk.desc.?[mid].next = @intCast(idx[2]);
 
     disk.info[head].status = 0xff;
-    const tail: usize = @intCast(idx[2]);
+    const tail: u64 = @intCast(idx[2]);
     disk.desc.?[tail].addr = @intFromPtr(&disk.info[head].status);
     disk.desc.?[tail].len = 1;
     disk.desc.?[tail].flags = VRING_DESC_F_WRITE;
@@ -339,7 +337,7 @@ pub export fn virtio_disk_rw(b: *Buf, write: cint) void {
     b.disk = 1;
     disk.info[head].b = b;
 
-    const avail_slot: usize = @intCast(disk.avail.?.idx % NUM);
+    const avail_slot: u64 = @intCast(disk.avail.?.idx % NUM);
     disk.avail.?.ring[avail_slot] = @intCast(idx[0]);
 
     sync_synchronize();
@@ -369,7 +367,7 @@ pub export fn virtio_disk_intr() void {
 
     while (disk.used_idx != disk.used.?.idx) {
         sync_synchronize();
-        const id: usize = @intCast(disk.used.?.ring[disk.used_idx % NUM].id);
+        const id: u64 = @intCast(disk.used.?.ring[disk.used_idx % NUM].id);
 
         if (disk.info[id].status != 0) {
             panic("virtio_disk_intr status");

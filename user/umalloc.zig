@@ -5,12 +5,12 @@ const Header = extern struct {
     size: u32,
 };
 
-const SBRK_ERROR: usize = ~@as(usize, 0);
+const SBRK_ERROR: u64 = ~@as(u64, 0);
 
 var base: Header = .{ .ptr = null, .size = 0 };
 var freep: ?*Header = null;
 
-fn ptrAddr(p: *Header) usize {
+fn ptrAddr(p: *Header) u64 {
     return @intFromPtr(p);
 }
 
@@ -50,7 +50,7 @@ fn morecore(nu0: u32) ?*Header {
     var nu = nu0;
     if (nu < 4096) nu = 4096;
 
-    const p = xv6.sbrk(@intCast(@as(usize, nu) * @sizeOf(Header)));
+    const p = xv6.sbrk(@intCast(@as(u64, nu) * @sizeOf(Header)));
     if (@intFromPtr(p) == SBRK_ERROR) return null;
 
     const hp: *Header = @ptrCast(@alignCast(p));
@@ -60,7 +60,7 @@ fn morecore(nu0: u32) ?*Header {
 }
 
 pub export fn malloc(nbytes: u32) ?*anyopaque {
-    const nunits: u32 = @intCast((@as(usize, nbytes) + @sizeOf(Header) - 1) / @sizeOf(Header) + 1);
+    const nunits: u32 = @intCast((@as(u64, nbytes) + @sizeOf(Header) - 1) / @sizeOf(Header) + 1);
 
     if (freep == null) {
         base.ptr = &base;

@@ -3,8 +3,8 @@ const xv6 = @import("xv6.zig");
 var fmtbuf: [xv6.DIRSIZ + 1]u8 = undefined;
 
 fn fmtname(path: [*:0]const u8) [*:0]u8 {
-    const len: usize = @intCast(xv6.strlen(path));
-    var start: usize = len;
+    const len: u64 = @intCast(xv6.strlen(path));
+    var start: u64 = len;
     while (start > 0 and path[start - 1] != '/') {
         start -= 1;
     }
@@ -14,7 +14,7 @@ fn fmtname(path: [*:0]const u8) [*:0]u8 {
         return @constCast(path + start);
     }
 
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < n) : (i += 1) {
         fmtbuf[i] = path[start + i];
     }
@@ -53,7 +53,7 @@ fn ls(path: [*:0]const u8) void {
             }
 
             _ = xv6.strcpy(&buf, path);
-            var p: usize = @intCast(xv6.strlen(@ptrCast(&buf)));
+            var p: u64 = @intCast(xv6.strlen(@ptrCast(&buf)));
             buf[p] = '/';
             p += 1;
 
@@ -62,7 +62,7 @@ fn ls(path: [*:0]const u8) void {
                     continue;
                 }
 
-                var i: usize = 0;
+                var i: u64 = 0;
                 while (i < xv6.DIRSIZ) : (i += 1) {
                     buf[p + i] = de.name[i];
                 }

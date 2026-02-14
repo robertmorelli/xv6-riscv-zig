@@ -1,11 +1,9 @@
-const cint = i32;
-const cuint = u32;
 
-const PIPESIZE: cuint = 512;
-const FD_PIPE: cint = 1;
+const PIPESIZE: u32 = 512;
+const FD_PIPE: i32 = 1;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
@@ -13,51 +11,51 @@ const Spinlock = extern struct {
 const Pipe = extern struct {
     lock: Spinlock,
     data: [PIPESIZE]u8,
-    nread: cuint,
-    nwrite: cuint,
-    readopen: cint,
-    writeopen: cint,
+    nread: u32,
+    nwrite: u32,
+    readopen: i32,
+    writeopen: i32,
 };
 
 const File = extern struct {
-    type: cint,
-    ref: cint,
+    type: i32,
+    ref: i32,
     readable: u8,
     writable: u8,
     pipe: ?*Pipe,
     ip: ?*anyopaque,
-    off: cuint,
+    off: u32,
     major: i16,
 };
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*anyopaque,
     kstack: u64,
     sz: u64,
     pagetable: ?*anyopaque,
 };
 
-extern fn filealloc() callconv(.c) ?*File;
-extern fn fileclose(f: *File) callconv(.c) void;
-extern fn kalloc() callconv(.c) ?*anyopaque;
-extern fn kfree(pa: ?*anyopaque) callconv(.c) void;
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn wakeup(chan: ?*anyopaque) callconv(.c) void;
-extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) callconv(.c) void;
-extern fn myproc() callconv(.c) *Proc;
-extern fn killed(p: *Proc) callconv(.c) cint;
-extern fn copyin(pagetable: ?*anyopaque, dst: [*c]u8, srcva: u64, len: u64) callconv(.c) cint;
-extern fn copyout(pagetable: ?*anyopaque, dstva: u64, src: [*c]u8, len: u64) callconv(.c) cint;
+extern fn filealloc() ?*File;
+extern fn fileclose(f: *File) void;
+extern fn kalloc() ?*anyopaque;
+extern fn kfree(pa: ?*anyopaque) void;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn wakeup(chan: ?*anyopaque) void;
+extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) void;
+extern fn myproc() *Proc;
+extern fn killed(p: *Proc) i32;
+extern fn copyin(pagetable: ?*anyopaque, dst: [*c]u8, srcva: u64, len: u64) i32;
+extern fn copyout(pagetable: ?*anyopaque, dstva: u64, src: [*c]u8, len: u64) i32;
 
-pub export fn pipealloc(f0: *?*File, f1: *?*File) cint {
+pub export fn pipealloc(f0: *?*File, f1: *?*File) i32 {
     var pi: ?*Pipe = null;
     f0.* = null;
     f1.* = null;
@@ -112,7 +110,7 @@ fn gotoBad(pi: *?*Pipe, f0: *?*File, f1: *?*File) void {
     }
 }
 
-pub export fn pipeclose(pi: *Pipe, writable: cint) void {
+pub export fn pipeclose(pi: *Pipe, writable: i32) void {
     acquire(&pi.lock);
     if (writable != 0) {
         pi.writeopen = 0;
@@ -130,8 +128,8 @@ pub export fn pipeclose(pi: *Pipe, writable: cint) void {
     }
 }
 
-pub export fn pipewrite(pi: *Pipe, addr: u64, n: cint) cint {
-    var i: cint = 0;
+pub export fn pipewrite(pi: *Pipe, addr: u64, n: i32) i32 {
+    var i: i32 = 0;
     const pr = myproc();
 
     acquire(&pi.lock);
@@ -146,11 +144,11 @@ pub export fn pipewrite(pi: *Pipe, addr: u64, n: cint) cint {
             sleep(@ptrCast(&pi.nwrite), &pi.lock);
         } else {
             var ch: u8 = 0;
-            const i_u64: u64 = @intCast(@as(cuint, @intCast(i)));
+            const i_u64: u64 = @intCast(@as(u32, @intCast(i)));
             if (copyin(pr.pagetable, @ptrCast(&ch), addr + i_u64, 1) == -1) {
                 break;
             }
-            const idx: usize = @intCast(pi.nwrite % PIPESIZE);
+            const idx: u64 = @intCast(pi.nwrite % PIPESIZE);
             pi.data[idx] = ch;
             pi.nwrite +%= 1;
             i += 1;
@@ -161,8 +159,8 @@ pub export fn pipewrite(pi: *Pipe, addr: u64, n: cint) cint {
     return i;
 }
 
-pub export fn piperead(pi: *Pipe, addr: u64, n: cint) cint {
-    var i: cint = 0;
+pub export fn piperead(pi: *Pipe, addr: u64, n: i32) i32 {
+    var i: i32 = 0;
     const pr = myproc();
     var ch: u8 = 0;
 
@@ -180,7 +178,7 @@ pub export fn piperead(pi: *Pipe, addr: u64, n: cint) cint {
             break;
         }
         ch = pi.data[@intCast(pi.nread % PIPESIZE)];
-        const i_u64: u64 = @intCast(@as(cuint, @intCast(i)));
+        const i_u64: u64 = @intCast(@as(u32, @intCast(i)));
         if (copyout(pr.pagetable, addr + i_u64, @ptrCast(&ch), 1) == -1) {
             if (i == 0) {
                 i = -1;

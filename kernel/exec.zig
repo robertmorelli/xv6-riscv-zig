@@ -1,17 +1,15 @@
-const cint = i32;
-const cuint = u32;
 const cushort = u16;
 
-const MAXARG: usize = 32;
+const MAXARG: u64 = 32;
 const USERSTACK: u64 = 1;
 const PGSIZE: u64 = 4096;
-const PTE_W: cint = 1 << 2;
-const PTE_X: cint = 1 << 3;
-const ELF_MAGIC: cuint = 0x464C457F;
-const ELF_PROG_LOAD: cuint = 1;
+const PTE_W: i32 = 1 << 2;
+const PTE_X: i32 = 1 << 3;
+const ELF_MAGIC: u32 = 0x464C457F;
+const ELF_PROG_LOAD: u32 = 1;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
@@ -74,11 +72,11 @@ const Trapframe = extern struct {
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*Proc,
     kstack: u64,
     sz: u64,
@@ -91,15 +89,15 @@ const Proc = extern struct {
 };
 
 const Elfhdr = extern struct {
-    magic: cuint,
+    magic: u32,
     elf: [12]u8,
     type: cushort,
     machine: cushort,
-    version: cuint,
+    version: u32,
     entry: u64,
     phoff: u64,
     shoff: u64,
-    flags: cuint,
+    flags: u32,
     ehsize: cushort,
     phentsize: cushort,
     phnum: cushort,
@@ -109,8 +107,8 @@ const Elfhdr = extern struct {
 };
 
 const Proghdr = extern struct {
-    type: cuint,
-    flags: cuint,
+    type: u32,
+    flags: u32,
     off: u64,
     vaddr: u64,
     paddr: u64,
@@ -123,25 +121,25 @@ inline fn pgroundup(sz: u64) u64 {
     return (sz + PGSIZE - 1) & ~(PGSIZE - 1);
 }
 
-extern fn begin_op() callconv(.c) void;
-extern fn end_op() callconv(.c) void;
-extern fn namei(path: [*c]u8) callconv(.c) ?*anyopaque;
-extern fn ilock(ip: ?*anyopaque) callconv(.c) void;
-extern fn readi(ip: ?*anyopaque, user_dst: cint, dst: u64, off: cuint, n: cuint) callconv(.c) cint;
-extern fn iunlockput(ip: ?*anyopaque) callconv(.c) void;
-extern fn proc_pagetable(p: *Proc) callconv(.c) [*c]u64;
-extern fn uvmalloc(pagetable: [*c]u64, oldsz: u64, newsz: u64, xperm: cint) callconv(.c) u64;
-extern fn uvmclear(pagetable: [*c]u64, va: u64) callconv(.c) void;
-extern fn copyout(pagetable: [*c]u64, dstva: u64, src: [*c]u8, len: u64) callconv(.c) cint;
-extern fn strlen(s: [*c]u8) callconv(.c) cint;
-extern fn safestrcpy(dst: [*c]u8, src: [*c]u8, n: cint) callconv(.c) [*c]u8;
-extern fn proc_freepagetable(pagetable: [*c]u64, sz: u64) callconv(.c) void;
-extern fn walkaddr(pagetable: [*c]u64, va: u64) callconv(.c) u64;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn myproc() callconv(.c) *Proc;
+extern fn begin_op() void;
+extern fn end_op() void;
+extern fn namei(path: [*c]u8) ?*anyopaque;
+extern fn ilock(ip: ?*anyopaque) void;
+extern fn readi(ip: ?*anyopaque, user_dst: i32, dst: u64, off: u32, n: u32) i32;
+extern fn iunlockput(ip: ?*anyopaque) void;
+extern fn proc_pagetable(p: *Proc) [*c]u64;
+extern fn uvmalloc(pagetable: [*c]u64, oldsz: u64, newsz: u64, xperm: i32) u64;
+extern fn uvmclear(pagetable: [*c]u64, va: u64) void;
+extern fn copyout(pagetable: [*c]u64, dstva: u64, src: [*c]u8, len: u64) i32;
+extern fn strlen(s: [*c]u8) i32;
+extern fn safestrcpy(dst: [*c]u8, src: [*c]u8, n: i32) [*c]u8;
+extern fn proc_freepagetable(pagetable: [*c]u64, sz: u64) void;
+extern fn walkaddr(pagetable: [*c]u64, va: u64) u64;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn myproc() *Proc;
 
-pub export fn flags2perm(flags: cint) callconv(.c) cint {
-    var perm: cint = 0;
+pub export fn flags2perm(flags: i32) i32 {
+    var perm: i32 = 0;
     if ((flags & 0x1) != 0) {
         perm = PTE_X;
     }
@@ -151,24 +149,24 @@ pub export fn flags2perm(flags: cint) callconv(.c) cint {
     return perm;
 }
 
-fn loadseg(pagetable: [*c]u64, va: u64, ip: ?*anyopaque, offset: cuint, sz: cuint) cint {
-    var i: cuint = 0;
+fn loadseg(pagetable: [*c]u64, va: u64, ip: ?*anyopaque, offset: u32, sz: u32) i32 {
+    var i: u32 = 0;
     while (i < sz) : (i += @intCast(PGSIZE)) {
         const pa = walkaddr(pagetable, va + i);
         if (pa == 0) {
             panic("loadseg: address should exist");
         }
-        const n: cuint = if (sz - i < PGSIZE) sz - i else @intCast(PGSIZE);
-        if (readi(ip, 0, pa, offset + i, n) != @as(cint, @intCast(n))) {
+        const n: u32 = if (sz - i < PGSIZE) sz - i else @intCast(PGSIZE);
+        if (readi(ip, 0, pa, offset + i, n) != @as(i32, @intCast(n))) {
             return -1;
         }
     }
     return 0;
 }
 
-pub export fn kexec(path: [*c]u8, argv: [*c][*c]u8) callconv(.c) cint {
-    var i: cint = 0;
-    var off: cuint = 0;
+pub export fn kexec(path: [*c]u8, argv: [*c][*c]u8) i32 {
+    var i: i32 = 0;
+    var off: u32 = 0;
     var argc: u64 = 0;
     var sz: u64 = 0;
     var sp: u64 = 0;
@@ -192,7 +190,7 @@ pub export fn kexec(path: [*c]u8, argv: [*c][*c]u8) callconv(.c) cint {
     }
     ilock(ip);
 
-    if (readi(ip, 0, @intFromPtr(&elf), 0, @sizeOf(Elfhdr)) != @as(cint, @intCast(@sizeOf(Elfhdr)))) {
+    if (readi(ip, 0, @intFromPtr(&elf), 0, @sizeOf(Elfhdr)) != @as(i32, @intCast(@sizeOf(Elfhdr)))) {
         gotoBad(&pagetable, &ip, sz);
         return -1;
     }
@@ -210,11 +208,11 @@ pub export fn kexec(path: [*c]u8, argv: [*c][*c]u8) callconv(.c) cint {
 
     i = 0;
     off = @intCast(elf.phoff);
-    while (i < @as(cint, @intCast(elf.phnum))) : ({
+    while (i < @as(i32, @intCast(elf.phnum))) : ({
         i += 1;
         off +%= @intCast(@sizeOf(Proghdr));
     }) {
-        if (readi(ip, 0, @intFromPtr(&ph), off, @sizeOf(Proghdr)) != @as(cint, @intCast(@sizeOf(Proghdr)))) {
+        if (readi(ip, 0, @intFromPtr(&ph), off, @sizeOf(Proghdr)) != @as(i32, @intCast(@sizeOf(Proghdr)))) {
             gotoBad(&pagetable, &ip, sz);
             return -1;
         }
@@ -269,7 +267,7 @@ pub export fn kexec(path: [*c]u8, argv: [*c][*c]u8) callconv(.c) cint {
             return -1;
         }
         const arg = argv[argc];
-        const arglen: u64 = @intCast(@as(cuint, @intCast(strlen(arg))));
+        const arglen: u64 = @intCast(@as(u32, @intCast(strlen(arg))));
         sp -= arglen + 1;
         sp -= sp % 16;
         if (sp < stackbase) {

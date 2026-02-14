@@ -50,7 +50,7 @@ fn matchstar(c: u8, re: [*:0]const u8, text: [*:0]const u8) i32 {
 }
 
 fn grep(pattern: [*:0]const u8, fd: i32) void {
-    var m: usize = 0;
+    var m: u64 = 0;
 
     while (true) {
         const n = xv6.read(fd, @ptrCast(&buf[m]), @intCast(buf.len - m - 1));
@@ -60,9 +60,9 @@ fn grep(pattern: [*:0]const u8, fd: i32) void {
         m += @intCast(n);
         buf[m] = 0;
 
-        var p: usize = 0;
+        var p: u64 = 0;
         while (true) {
-            var q: usize = p;
+            var q: u64 = p;
             while (q < m and buf[q] != '\n') : (q += 1) {}
             if (q >= m) {
                 break;

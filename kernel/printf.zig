@@ -1,27 +1,25 @@
-const cint = i32;
-const cuint = u32;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
-pub export var panicking: cint = 0;
-pub export var panicked: cint = 0;
+pub export var panicking: i32 = 0;
+pub export var panicked: i32 = 0;
 
 var pr_lock: Spinlock = undefined;
 
 const digits = "0123456789abcdef";
 
-extern fn consputc(c: cint) callconv(.c) void;
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
+extern fn consputc(c: i32) void;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
 
 fn printint(xx: i64, base: u32, sign: bool) void {
     var buf: [20]u8 = undefined;
-    var i: usize = 0;
+    var i: u64 = 0;
     var x: u64 = 0;
     var neg = false;
 
@@ -56,16 +54,16 @@ fn printptr(x0: u64) void {
     var x = x0;
     consputc('0');
     consputc('x');
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < (@sizeOf(u64) * 2)) : (i += 1) {
-        const d: usize = @intCast((x >> (@sizeOf(u64) * 8 - 4)) & 0xf);
+        const d: u64 = @intCast((x >> (@sizeOf(u64) * 8 - 4)) & 0xf);
         consputc(digits[d]);
         x <<= 4;
     }
 }
 
 fn vprintf(fmt: [*:0]const u8, ap: anytype) void {
-    var i: usize = 0;
+    var i: u64 = 0;
     while (true) : (i += 1) {
         const cx = fmt[i];
         if (cx == 0) {
@@ -108,7 +106,7 @@ fn vprintf(fmt: [*:0]const u8, ap: anytype) void {
         } else if (c0 == 'p') {
             printptr(@cVaArg(ap, u64));
         } else if (c0 == 'c') {
-            consputc(@intCast(@cVaArg(ap, cuint)));
+            consputc(@intCast(@cVaArg(ap, u32)));
         } else if (c0 == 's') {
             var s = @cVaArg(ap, ?[*:0]u8);
             if (s == null) {
@@ -137,7 +135,7 @@ fn printstr(s: [*:0]const u8) void {
     }
 }
 
-pub export fn printf(fmt: [*:0]const u8, ...) callconv(.c) cint {
+pub export fn printf(fmt: [*:0]const u8, ...) i32 {
     if (panicking == 0) {
         acquire(&pr_lock);
     }
@@ -153,7 +151,7 @@ pub export fn printf(fmt: [*:0]const u8, ...) callconv(.c) cint {
     return 0;
 }
 
-pub export fn panic(s: [*:0]const u8) callconv(.c) noreturn {
+pub export fn panic(s: [*:0]const u8) noreturn {
     panicking = 1;
     printstr("panic: ");
     printstr(s);
@@ -162,6 +160,6 @@ pub export fn panic(s: [*:0]const u8) callconv(.c) noreturn {
     while (true) {}
 }
 
-pub export fn printfinit() callconv(.c) void {
+pub export fn printfinit() void {
     initlock(&pr_lock, @constCast("pr"));
 }

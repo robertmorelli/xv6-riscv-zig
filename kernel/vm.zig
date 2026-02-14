@@ -1,5 +1,3 @@
-const cint = i32;
-const cuint = u32;
 
 const PGSIZE: u64 = 4096;
 const MAXVA: u64 = (@as(u64, 1) << 38);
@@ -18,7 +16,7 @@ const PTE_W: u64 = 0x004;
 const PTE_X: u64 = 0x008;
 const PTE_U: u64 = 0x010;
 
-const NOFILE: usize = 16;
+const NOFILE: u64 = 16;
 
 const Context = extern struct {
     ra: u64,
@@ -38,18 +36,18 @@ const Context = extern struct {
 };
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*Proc,
     kstack: u64,
     sz: u64,
@@ -66,13 +64,13 @@ pub export var kernel_pagetable: [*c]u64 = @ptrFromInt(0);
 extern var etext: u8;
 extern var trampoline: u8;
 
-extern fn kalloc() callconv(.c) ?*anyopaque;
-extern fn kfree(pa: ?*anyopaque) callconv(.c) void;
-extern fn memset(dst: ?*anyopaque, c: cint, n: cuint) callconv(.c) ?*anyopaque;
-extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: cuint) callconv(.c) ?*anyopaque;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn proc_mapstacks(kpgtbl: [*c]u64) callconv(.c) void;
-extern fn myproc() callconv(.c) ?*Proc;
+extern fn kalloc() ?*anyopaque;
+extern fn kfree(pa: ?*anyopaque) void;
+extern fn memset(dst: ?*anyopaque, c: i32, n: u32) ?*anyopaque;
+extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: u32) ?*anyopaque;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn proc_mapstacks(kpgtbl: [*c]u64) void;
+extern fn myproc() ?*Proc;
 
 inline fn makeSatp(pagetable: [*c]u64) u64 {
     return SATP_SV39 | (@as(u64, @intCast(@intFromPtr(pagetable))) >> 12);
@@ -101,7 +99,7 @@ inline fn pte_flags(pte: u64) u64 {
     return pte & 0x3ff;
 }
 
-inline fn px(level: u64, va: u64) usize {
+inline fn px(level: u64, va: u64) u64 {
     const shift: u6 = @intCast(12 + 9 * level);
     return @intCast((va >> shift) & 0x1ff);
 }
@@ -133,7 +131,7 @@ fn kvmmake() [*c]u64 {
     return kpgtbl;
 }
 
-pub export fn kvmmap(kpgtbl: [*c]u64, va: u64, pa: u64, sz: u64, perm: cint) void {
+pub export fn kvmmap(kpgtbl: [*c]u64, va: u64, pa: u64, sz: u64, perm: i32) void {
     if (mappages(kpgtbl, va, sz, pa, perm) != 0) {
         panic("kvmmap");
     }
@@ -149,16 +147,16 @@ pub export fn kvminithart() void {
     sfence_vma();
 }
 
-pub export fn walk(pagetable: [*c]u64, va: u64, alloc: cint) [*c]u64 {
+pub export fn walk(pagetable: [*c]u64, va: u64, alloc: i32) [*c]u64 {
     var pt = pagetable;
 
     if (va >= MAXVA) {
         panic("walk");
     }
 
-    var level: cint = 2;
+    var level: i32 = 2;
     while (level > 0) : (level -= 1) {
-        const pte = &pt[px(@intCast(@as(cuint, @intCast(level))), va)];
+        const pte = &pt[px(@intCast(@as(u32, @intCast(level))), va)];
         if ((pte.* & PTE_V) != 0) {
             pt = @ptrFromInt(pte2pa(pte.*));
         } else {
@@ -195,7 +193,7 @@ pub export fn walkaddr(pagetable: [*c]u64, va: u64) u64 {
     return pte2pa(pte.*);
 }
 
-pub export fn mappages(pagetable: [*c]u64, va: u64, size: u64, pa: u64, perm: cint) cint {
+pub export fn mappages(pagetable: [*c]u64, va: u64, size: u64, pa: u64, perm: i32) i32 {
     var a = va;
     var p = pa;
     var pte: [*c]u64 = @ptrFromInt(0);
@@ -219,7 +217,7 @@ pub export fn mappages(pagetable: [*c]u64, va: u64, size: u64, pa: u64, perm: ci
         if ((pte.* & PTE_V) != 0) {
             panic("mappages: remap");
         }
-        const perm_u: u64 = @intCast(@as(cuint, @intCast(perm)));
+        const perm_u: u64 = @intCast(@as(u32, @intCast(perm)));
         pte.* = pa2pte(p) | perm_u | PTE_V;
         if (a == last) {
             break;
@@ -240,7 +238,7 @@ pub export fn uvmcreate() [*c]u64 {
     return pagetable;
 }
 
-pub export fn uvmunmap(pagetable: [*c]u64, va: u64, npages: u64, do_free: cint) void {
+pub export fn uvmunmap(pagetable: [*c]u64, va: u64, npages: u64, do_free: i32) void {
     if ((va % PGSIZE) != 0) {
         panic("uvmunmap: not aligned");
     }
@@ -262,7 +260,7 @@ pub export fn uvmunmap(pagetable: [*c]u64, va: u64, npages: u64, do_free: cint) 
     }
 }
 
-pub export fn uvmalloc(pagetable: [*c]u64, oldsz: u64, newsz: u64, xperm: cint) u64 {
+pub export fn uvmalloc(pagetable: [*c]u64, oldsz: u64, newsz: u64, xperm: i32) u64 {
     var oldsz_mut = oldsz;
     if (newsz < oldsz_mut) {
         return oldsz_mut;
@@ -277,7 +275,7 @@ pub export fn uvmalloc(pagetable: [*c]u64, oldsz: u64, newsz: u64, xperm: cint) 
             return 0;
         }
         _ = memset(mem, 0, @intCast(PGSIZE));
-        const perm: cint = @intCast(PTE_R | PTE_U | @as(u64, @intCast(@as(cuint, @intCast(xperm)))));
+        const perm: i32 = @intCast(PTE_R | PTE_U | @as(u64, @intCast(@as(u32, @intCast(xperm)))));
         if (mappages(pagetable, a, PGSIZE, @intFromPtr(mem.?), perm) != 0) {
             kfree(mem);
             _ = uvmdealloc(pagetable, a, oldsz_mut);
@@ -301,7 +299,7 @@ pub export fn uvmdealloc(pagetable: [*c]u64, oldsz: u64, newsz: u64) u64 {
 }
 
 pub export fn freewalk(pagetable: [*c]u64) void {
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < 512) : (i += 1) {
         const pte = pagetable[i];
         if ((pte & PTE_V) != 0 and (pte & (PTE_R | PTE_W | PTE_X)) == 0) {
@@ -322,7 +320,7 @@ pub export fn uvmfree(pagetable: [*c]u64, sz: u64) void {
     freewalk(pagetable);
 }
 
-pub export fn uvmcopy(old: [*c]u64, new: [*c]u64, sz: u64) cint {
+pub export fn uvmcopy(old: [*c]u64, new: [*c]u64, sz: u64) i32 {
     var i: u64 = 0;
     while (i < sz) : (i += PGSIZE) {
         const pte = walk(old, i, 0);
@@ -359,7 +357,7 @@ pub export fn uvmclear(pagetable: [*c]u64, va: u64) void {
     pte.* &= ~PTE_U;
 }
 
-pub export fn copyout(pagetable: [*c]u64, dstva: u64, src: [*c]u8, len: u64) cint {
+pub export fn copyout(pagetable: [*c]u64, dstva: u64, src: [*c]u8, len: u64) i32 {
     var len_left = len;
     var dst = dstva;
     var src_addr = @as(u64, @intCast(@intFromPtr(src)));
@@ -396,7 +394,7 @@ pub export fn copyout(pagetable: [*c]u64, dstva: u64, src: [*c]u8, len: u64) cin
     return 0;
 }
 
-pub export fn copyin(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, len: u64) cint {
+pub export fn copyin(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, len: u64) i32 {
     var len_left = len;
     var src = srcva;
     var dst_addr = @as(u64, @intCast(@intFromPtr(dst)));
@@ -424,8 +422,8 @@ pub export fn copyin(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, len: u64) cint
     return 0;
 }
 
-pub export fn copyinstr(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, max: u64) cint {
-    var got_null: cint = 0;
+pub export fn copyinstr(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, max: u64) i32 {
+    var got_null: i32 = 0;
     var src = srcva;
     var max_left = max;
     var dst_addr = @as(u64, @intCast(@intFromPtr(dst)));
@@ -464,7 +462,7 @@ pub export fn copyinstr(pagetable: [*c]u64, dst: [*c]u8, srcva: u64, max: u64) c
     return if (got_null != 0) 0 else -1;
 }
 
-pub export fn vmfault(pagetable: [*c]u64, va: u64, read: cint) u64 {
+pub export fn vmfault(pagetable: [*c]u64, va: u64, read: i32) u64 {
     _ = read;
 
     const p = myproc().?;
@@ -492,7 +490,7 @@ pub export fn vmfault(pagetable: [*c]u64, va: u64, read: cint) u64 {
     return mem_addr;
 }
 
-pub export fn ismapped(pagetable: [*c]u64, va: u64) cint {
+pub export fn ismapped(pagetable: [*c]u64, va: u64) i32 {
     const pte = walk(pagetable, va, 0);
     if (pte == @as([*c]u64, @ptrFromInt(0))) {
         return 0;

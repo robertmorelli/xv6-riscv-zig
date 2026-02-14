@@ -1,7 +1,5 @@
-const cint = i32;
-const cuint = u32;
 
-const NOFILE: usize = 16;
+const NOFILE: u64 = 16;
 const PGSIZE: u64 = 4096;
 const MAXVA: u64 = (@as(u64, 1) << 38);
 const TRAMPOLINE: u64 = MAXVA - PGSIZE;
@@ -9,8 +7,8 @@ const SATP_SV39: u64 = (@as(u64, 8) << 60);
 const SSTATUS_SPP: u64 = (@as(u64, 1) << 8);
 const SSTATUS_SPIE: u64 = (@as(u64, 1) << 5);
 const SSTATUS_SIE: u64 = (@as(u64, 1) << 1);
-const UART0_IRQ: cint = 10;
-const VIRTIO0_IRQ: cint = 1;
+const UART0_IRQ: i32 = 10;
+const VIRTIO0_IRQ: i32 = 1;
 
 const Context = extern struct {
     ra: u64,
@@ -69,18 +67,18 @@ const Trapframe = extern struct {
 };
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Proc = extern struct {
     lock: Spinlock,
-    state: cint,
+    state: i32,
     chan: ?*anyopaque,
-    killed: cint,
-    xstate: cint,
-    pid: cint,
+    killed: i32,
+    xstate: i32,
+    pid: i32,
     parent: ?*Proc,
     kstack: u64,
     sz: u64,
@@ -97,30 +95,30 @@ pub export var tickslock: Spinlock = .{
     .name = null,
     .cpu = null,
 };
-pub export var ticks: cuint = 0;
+pub export var ticks: u32 = 0;
 
 extern var trampoline: u8;
 extern var uservec: u8;
 
-extern fn kernelvec() callconv(.c) void;
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn myproc() callconv(.c) ?*Proc;
-extern fn killed(p: *Proc) callconv(.c) cint;
-extern fn setkilled(p: *Proc) callconv(.c) void;
-extern fn kexit(status: cint) callconv(.c) void;
-extern fn yield() callconv(.c) void;
-extern fn syscall() callconv(.c) void;
-extern fn vmfault(pagetable: ?*anyopaque, va: u64, store: cint) callconv(.c) u64;
-extern fn printf(fmt: [*c]const u8, ...) callconv(.c) cint;
-extern fn cpuid() callconv(.c) cint;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn wakeup(chan: ?*anyopaque) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn plic_claim() callconv(.c) cint;
-extern fn uartintr() callconv(.c) void;
-extern fn virtio_disk_intr() callconv(.c) void;
-extern fn plic_complete(irq: cint) callconv(.c) void;
+extern fn kernelvec() void;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn myproc() ?*Proc;
+extern fn killed(p: *Proc) i32;
+extern fn setkilled(p: *Proc) void;
+extern fn kexit(status: i32) void;
+extern fn yield() void;
+extern fn syscall() void;
+extern fn vmfault(pagetable: ?*anyopaque, va: u64, store: i32) u64;
+extern fn printf(fmt: [*c]const u8, ...) i32;
+extern fn cpuid() i32;
+extern fn acquire(lk: *Spinlock) void;
+extern fn wakeup(chan: ?*anyopaque) void;
+extern fn release(lk: *Spinlock) void;
+extern fn plic_claim() i32;
+extern fn uartintr() void;
+extern fn virtio_disk_intr() void;
+extern fn plic_complete(irq: i32) void;
 
 inline fn makeSatp(pagetable: *anyopaque) u64 {
     return SATP_SV39 | (@as(u64, @intCast(@intFromPtr(pagetable))) >> 12);
@@ -147,7 +145,7 @@ inline fn intr_off() void {
     w_sstatus(r_sstatus() & ~SSTATUS_SIE);
 }
 
-inline fn intr_get() cint {
+inline fn intr_get() i32 {
     return if ((r_sstatus() & SSTATUS_SIE) != 0) 1 else 0;
 }
 
@@ -217,7 +215,7 @@ pub export fn trapinithart() void {
 }
 
 pub export fn usertrap() u64 {
-    var which_dev: cint = 0;
+    var which_dev: i32 = 0;
 
     if ((r_sstatus() & SSTATUS_SPP) != 0) {
         panic("usertrap: not from user mode");
@@ -286,7 +284,7 @@ pub export fn prepare_return() void {
 }
 
 pub export fn kerneltrap() void {
-    var which_dev: cint = 0;
+    var which_dev: i32 = 0;
     const sepc = r_sepc();
     const sstatus = r_sstatus();
     const scause = r_scause();
@@ -323,7 +321,7 @@ pub export fn clockintr() void {
     w_stimecmp(r_time() + 1000000);
 }
 
-pub export fn devintr() cint {
+pub export fn devintr() i32 {
     const scause = r_scause();
 
     if (scause == 0x8000000000000009) {

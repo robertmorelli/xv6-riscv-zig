@@ -1,84 +1,82 @@
-const cint = i32;
-const cuint = u32;
 
-const MAXOPBLOCKS: cint = 10;
-const LOGBLOCKS: usize = MAXOPBLOCKS * 3;
-const BSIZE: usize = 1024;
+const MAXOPBLOCKS: i32 = 10;
+const LOGBLOCKS: u64 = MAXOPBLOCKS * 3;
+const BSIZE: u64 = 1024;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Sleeplock = extern struct {
-    locked: cuint,
+    locked: u32,
     lk: Spinlock,
     name: [*c]u8,
-    pid: cint,
+    pid: i32,
 };
 
 const Buf = extern struct {
-    valid: cint,
-    disk: cint,
-    dev: cuint,
-    blockno: cuint,
+    valid: i32,
+    disk: i32,
+    dev: u32,
+    blockno: u32,
     lock: Sleeplock,
-    refcnt: cuint,
+    refcnt: u32,
     prev: ?*Buf,
     next: ?*Buf,
     data: [BSIZE]u8,
 };
 
 const Superblock = extern struct {
-    magic: cuint,
-    size: cuint,
-    nblocks: cuint,
-    ninodes: cuint,
-    nlog: cuint,
-    logstart: cuint,
-    inodestart: cuint,
-    bmapstart: cuint,
+    magic: u32,
+    size: u32,
+    nblocks: u32,
+    ninodes: u32,
+    nlog: u32,
+    logstart: u32,
+    inodestart: u32,
+    bmapstart: u32,
 };
 
 const Logheader = extern struct {
-    n: cint,
-    block: [LOGBLOCKS]cint,
+    n: i32,
+    block: [LOGBLOCKS]i32,
 };
 
 const Log = extern struct {
     lock: Spinlock,
-    start: cint,
-    outstanding: cint,
-    committing: cint,
-    dev: cint,
+    start: i32,
+    outstanding: i32,
+    committing: i32,
+    dev: i32,
     lh: Logheader,
 };
 
 var log: Log = undefined;
 
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) callconv(.c) void;
-extern fn wakeup(chan: ?*anyopaque) callconv(.c) void;
-extern fn printf(fmt: [*:0]const u8, ...) callconv(.c) cint;
-extern fn bread(dev: cuint, blockno: cuint) callconv(.c) *Buf;
-extern fn bwrite(b: *Buf) callconv(.c) void;
-extern fn brelse(b: *Buf) callconv(.c) void;
-extern fn bpin(b: *Buf) callconv(.c) void;
-extern fn bunpin(b: *Buf) callconv(.c) void;
-extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: cuint) callconv(.c) ?*anyopaque;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) void;
+extern fn wakeup(chan: ?*anyopaque) void;
+extern fn printf(fmt: [*:0]const u8, ...) i32;
+extern fn bread(dev: u32, blockno: u32) *Buf;
+extern fn bwrite(b: *Buf) void;
+extern fn brelse(b: *Buf) void;
+extern fn bpin(b: *Buf) void;
+extern fn bunpin(b: *Buf) void;
+extern fn memmove(dst: ?*anyopaque, src: ?*const anyopaque, n: u32) ?*anyopaque;
 
-fn install_trans(recovering: cint) void {
-    var tail: cint = 0;
+fn install_trans(recovering: i32) void {
+    var tail: i32 = 0;
     while (tail < log.lh.n) : (tail += 1) {
         if (recovering != 0) {
-            _ = printf("recovering tail %d dst %d\n", tail, log.lh.block[@intCast(@as(cuint, @intCast(tail)))]);
+            _ = printf("recovering tail %d dst %d\n", tail, log.lh.block[@intCast(@as(u32, @intCast(tail)))]);
         }
-        const lbuf = bread(@intCast(@as(cuint, @intCast(log.dev))), @intCast(@as(cuint, @intCast(log.start + tail + 1))));
-        const dbuf = bread(@intCast(@as(cuint, @intCast(log.dev))), @intCast(@as(cuint, @intCast(log.lh.block[@intCast(@as(cuint, @intCast(tail)))]))));
+        const lbuf = bread(@intCast(@as(u32, @intCast(log.dev))), @intCast(@as(u32, @intCast(log.start + tail + 1))));
+        const dbuf = bread(@intCast(@as(u32, @intCast(log.dev))), @intCast(@as(u32, @intCast(log.lh.block[@intCast(@as(u32, @intCast(tail)))]))));
         _ = memmove(@ptrCast(&dbuf.data), @ptrCast(&lbuf.data), BSIZE);
         bwrite(dbuf);
         if (recovering == 0) {
@@ -90,23 +88,23 @@ fn install_trans(recovering: cint) void {
 }
 
 fn read_head() void {
-    const buf = bread(@intCast(@as(cuint, @intCast(log.dev))), @intCast(@as(cuint, @intCast(log.start))));
+    const buf = bread(@intCast(@as(u32, @intCast(log.dev))), @intCast(@as(u32, @intCast(log.start))));
     const lh: *Logheader = @alignCast(@ptrCast(&buf.data));
     log.lh.n = lh.n;
-    var i: cint = 0;
+    var i: i32 = 0;
     while (i < log.lh.n) : (i += 1) {
-        log.lh.block[@intCast(@as(cuint, @intCast(i)))] = lh.block[@intCast(@as(cuint, @intCast(i)))];
+        log.lh.block[@intCast(@as(u32, @intCast(i)))] = lh.block[@intCast(@as(u32, @intCast(i)))];
     }
     brelse(buf);
 }
 
 fn write_head() void {
-    const buf = bread(@intCast(@as(cuint, @intCast(log.dev))), @intCast(@as(cuint, @intCast(log.start))));
+    const buf = bread(@intCast(@as(u32, @intCast(log.dev))), @intCast(@as(u32, @intCast(log.start))));
     const hb: *Logheader = @alignCast(@ptrCast(&buf.data));
     hb.n = log.lh.n;
-    var i: cint = 0;
+    var i: i32 = 0;
     while (i < log.lh.n) : (i += 1) {
-        hb.block[@intCast(@as(cuint, @intCast(i)))] = log.lh.block[@intCast(@as(cuint, @intCast(i)))];
+        hb.block[@intCast(@as(u32, @intCast(i)))] = log.lh.block[@intCast(@as(u32, @intCast(i)))];
     }
     bwrite(buf);
     brelse(buf);
@@ -120,10 +118,10 @@ fn recover_from_log() void {
 }
 
 fn write_log() void {
-    var tail: cint = 0;
+    var tail: i32 = 0;
     while (tail < log.lh.n) : (tail += 1) {
-        const to = bread(@intCast(@as(cuint, @intCast(log.dev))), @intCast(@as(cuint, @intCast(log.start + tail + 1))));
-        const from = bread(@intCast(@as(cuint, @intCast(log.dev))), @intCast(@as(cuint, @intCast(log.lh.block[@intCast(@as(cuint, @intCast(tail)))]))));
+        const to = bread(@intCast(@as(u32, @intCast(log.dev))), @intCast(@as(u32, @intCast(log.start + tail + 1))));
+        const from = bread(@intCast(@as(u32, @intCast(log.dev))), @intCast(@as(u32, @intCast(log.lh.block[@intCast(@as(u32, @intCast(tail)))]))));
         _ = memmove(@ptrCast(&to.data), @ptrCast(&from.data), BSIZE);
         bwrite(to);
         brelse(from);
@@ -141,7 +139,7 @@ fn commit() void {
     }
 }
 
-pub export fn initlog(dev: cint, sb: *Superblock) void {
+pub export fn initlog(dev: i32, sb: *Superblock) void {
     if (@sizeOf(Logheader) >= BSIZE) {
         panic("initlog: too big logheader");
     }
@@ -167,7 +165,7 @@ pub export fn begin_op() void {
 }
 
 pub export fn end_op() void {
-    var do_commit: cint = 0;
+    var do_commit: i32 = 0;
 
     acquire(&log.lock);
     log.outstanding -= 1;
@@ -200,13 +198,13 @@ pub export fn log_write(b: *Buf) void {
         panic("log_write outside of trans");
     }
 
-    var i: cint = 0;
+    var i: i32 = 0;
     while (i < log.lh.n) : (i += 1) {
-        if (log.lh.block[@intCast(@as(cuint, @intCast(i)))] == @as(cint, @intCast(b.blockno))) {
+        if (log.lh.block[@intCast(@as(u32, @intCast(i)))] == @as(i32, @intCast(b.blockno))) {
             break;
         }
     }
-    log.lh.block[@intCast(@as(cuint, @intCast(i)))] = @intCast(b.blockno);
+    log.lh.block[@intCast(@as(u32, @intCast(i)))] = @intCast(b.blockno);
     if (i == log.lh.n) {
         bpin(b);
         log.lh.n += 1;

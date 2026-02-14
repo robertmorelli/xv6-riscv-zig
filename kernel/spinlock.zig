@@ -1,5 +1,3 @@
-const cint = i32;
-const cuint = u32;
 
 const Context = extern struct {
     ra: u64,
@@ -21,18 +19,18 @@ const Context = extern struct {
 const Cpu = extern struct {
     proc: ?*anyopaque,
     context: Context,
-    noff: cint,
-    intena: cint,
+    noff: i32,
+    intena: i32,
 };
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*Cpu,
 };
 
-extern fn panic(s: [*c]const u8) callconv(.c) noreturn;
-extern fn mycpu() callconv(.c) *Cpu;
+extern fn panic(s: [*c]const u8) noreturn;
+extern fn mycpu() *Cpu;
 
 inline fn r_sstatus() u64 {
     return asm volatile ("csrr %[result], sstatus"
@@ -55,7 +53,7 @@ inline fn intr_off() void {
     w_sstatus(r_sstatus() & ~(@as(u64, 1) << 1));
 }
 
-inline fn intr_get() cint {
+inline fn intr_get() i32 {
     return if ((r_sstatus() & (@as(u64, 1) << 1)) != 0) 1 else 0;
 }
 
@@ -71,7 +69,7 @@ pub export fn acquire(lk: *Spinlock) void {
         panic("acquire");
     }
 
-    while (@atomicRmw(cuint, &lk.locked, .Xchg, 1, .seq_cst) != 0) {}
+    while (@atomicRmw(u32, &lk.locked, .Xchg, 1, .seq_cst) != 0) {}
     lk.cpu = mycpu();
 }
 
@@ -81,11 +79,11 @@ pub export fn release(lk: *Spinlock) void {
     }
 
     lk.cpu = null;
-    @atomicStore(cuint, &lk.locked, 0, .seq_cst);
+    @atomicStore(u32, &lk.locked, 0, .seq_cst);
     pop_off();
 }
 
-pub export fn holding(lk: *Spinlock) cint {
+pub export fn holding(lk: *Spinlock) i32 {
     const held = lk.locked != 0 and lk.cpu == mycpu();
     return if (held) 1 else 0;
 }

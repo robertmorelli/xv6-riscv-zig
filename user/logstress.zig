@@ -2,7 +2,7 @@ const xv6 = @import("xv6.zig");
 
 const N: i32 = 250;
 const SZ: i32 = 2000;
-const SZU: usize = 2000;
+const SZU: u64 = 2000;
 var buf: [SZU]u8 = undefined;
 
 pub export fn main(argc: i32, argv: [*][*:0]u8) i32 {

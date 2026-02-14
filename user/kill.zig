@@ -1,8 +1,8 @@
 const xv6 = @import("xv6.zig");
 
 pub export fn main(argc: i32, argv: [*][*:0]u8) i32 {
-    var i: usize = 1;
-    const n: usize = @intCast(argc);
+    var i: u64 = 1;
+    const n: u64 = @intCast(argc);
 
     if (argc < 2) {
         xv6.fprintf(2, "usage: kill pid...\n");

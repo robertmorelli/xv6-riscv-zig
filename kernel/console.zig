@@ -1,55 +1,53 @@
 const std = @import("std");
 
-const cint = i32;
-const cuint = u32;
 
-const NDEV: usize = 10;
-const CONSOLE: usize = 1;
-const INPUT_BUF_SIZE: cuint = 128;
-const BACKSPACE: cint = 0x100;
+const NDEV: u64 = 10;
+const CONSOLE: u64 = 1;
+const INPUT_BUF_SIZE: u32 = 128;
+const BACKSPACE: i32 = 0x100;
 
 const Spinlock = extern struct {
-    locked: cuint,
+    locked: u32,
     name: [*c]u8,
     cpu: ?*anyopaque,
 };
 
 const Devsw = extern struct {
-    read: ?*const fn (cint, u64, cint) callconv(.c) cint,
-    write: ?*const fn (cint, u64, cint) callconv(.c) cint,
+    read: ?*const fn (i32, u64, i32) callconv(.c) i32,
+    write: ?*const fn (i32, u64, i32) callconv(.c) i32,
 };
 
 const ConsState = extern struct {
     lock: Spinlock,
     buf: [INPUT_BUF_SIZE]u8,
-    r: cuint,
-    w: cuint,
-    e: cuint,
+    r: u32,
+    w: u32,
+    e: u32,
 };
 
 var cons: ConsState = std.mem.zeroes(ConsState);
 
 extern var devsw: [NDEV]Devsw;
 
-extern fn uartputc_sync(c: cint) callconv(.c) void;
-extern fn uartwrite(buf: [*c]u8, n: cint) callconv(.c) void;
-extern fn uartinit() callconv(.c) void;
-extern fn initlock(lk: *Spinlock, name: [*c]u8) callconv(.c) void;
-extern fn acquire(lk: *Spinlock) callconv(.c) void;
-extern fn release(lk: *Spinlock) callconv(.c) void;
-extern fn either_copyin(dst: ?*anyopaque, user_src: cint, src: u64, len: u64) callconv(.c) cint;
-extern fn either_copyout(user_dst: cint, dst: u64, src: ?*anyopaque, len: u64) callconv(.c) cint;
-extern fn myproc() callconv(.c) ?*anyopaque;
-extern fn killed(p: ?*anyopaque) callconv(.c) cint;
-extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) callconv(.c) void;
-extern fn wakeup(chan: ?*anyopaque) callconv(.c) void;
-extern fn procdump() callconv(.c) void;
+extern fn uartputc_sync(c: i32) void;
+extern fn uartwrite(buf: [*c]u8, n: i32) void;
+extern fn uartinit() void;
+extern fn initlock(lk: *Spinlock, name: [*c]u8) void;
+extern fn acquire(lk: *Spinlock) void;
+extern fn release(lk: *Spinlock) void;
+extern fn either_copyin(dst: ?*anyopaque, user_src: i32, src: u64, len: u64) i32;
+extern fn either_copyout(user_dst: i32, dst: u64, src: ?*anyopaque, len: u64) i32;
+extern fn myproc() ?*anyopaque;
+extern fn killed(p: ?*anyopaque) i32;
+extern fn sleep(chan: ?*anyopaque, lk: *Spinlock) void;
+extern fn wakeup(chan: ?*anyopaque) void;
+extern fn procdump() void;
 
-inline fn ctrl(x: u8) cint {
-    return @as(cint, x) - @as(cint, '@');
+inline fn ctrl(x: u8) i32 {
+    return @as(i32, x) - @as(i32, '@');
 }
 
-pub export fn consputc(c: cint) callconv(.c) void {
+pub export fn consputc(c: i32) void {
     if (c == BACKSPACE) {
         uartputc_sync('\x08');
         uartputc_sync(' ');
@@ -59,16 +57,16 @@ pub export fn consputc(c: cint) callconv(.c) void {
     }
 }
 
-pub export fn consolewrite(user_src: cint, src: u64, n: cint) callconv(.c) cint {
+pub export fn consolewrite(user_src: i32, src: u64, n: i32) i32 {
     var buf: [32]u8 = undefined;
-    var i: cint = 0;
+    var i: i32 = 0;
 
     while (i < n) {
-        var nn: cint = @intCast(buf.len);
+        var nn: i32 = @intCast(buf.len);
         if (nn > n - i) {
             nn = n - i;
         }
-        if (either_copyin(@ptrCast(&buf), user_src, src + @as(u64, @intCast(@as(cuint, @intCast(i)))), @as(u64, @intCast(@as(cuint, @intCast(nn))))) == -1) {
+        if (either_copyin(@ptrCast(&buf), user_src, src + @as(u64, @intCast(@as(u32, @intCast(i)))), @as(u64, @intCast(@as(u32, @intCast(nn))))) == -1) {
             break;
         }
         uartwrite(@ptrCast(&buf), nn);
@@ -78,7 +76,7 @@ pub export fn consolewrite(user_src: cint, src: u64, n: cint) callconv(.c) cint 
     return i;
 }
 
-pub export fn consoleread(user_dst: cint, dst: u64, n: cint) callconv(.c) cint {
+pub export fn consoleread(user_dst: i32, dst: u64, n: i32) i32 {
     const target = n;
     var nleft = n;
     var out = dst;
@@ -93,8 +91,8 @@ pub export fn consoleread(user_dst: cint, dst: u64, n: cint) callconv(.c) cint {
             sleep(@ptrCast(&cons.r), &cons.lock);
         }
 
-        const idx: usize = @intCast(cons.r % INPUT_BUF_SIZE);
-        const c: cint = cons.buf[idx];
+        const idx: u64 = @intCast(cons.r % INPUT_BUF_SIZE);
+        const c: i32 = cons.buf[idx];
         cons.r +%= 1;
 
         if (c == ctrl('D')) {
@@ -104,7 +102,7 @@ pub export fn consoleread(user_dst: cint, dst: u64, n: cint) callconv(.c) cint {
             break;
         }
 
-        var cbuf: u8 = @truncate(@as(cuint, @intCast(c)));
+        var cbuf: u8 = @truncate(@as(u32, @intCast(c)));
         if (either_copyout(user_dst, out, @ptrCast(&cbuf), 1) == -1) {
             break;
         }
@@ -121,7 +119,7 @@ pub export fn consoleread(user_dst: cint, dst: u64, n: cint) callconv(.c) cint {
     return target - nleft;
 }
 
-pub export fn consoleintr(c_in: cint) callconv(.c) void {
+pub export fn consoleintr(c_in: i32) void {
     var c = c_in;
     acquire(&cons.lock);
 
@@ -145,7 +143,7 @@ pub export fn consoleintr(c_in: cint) callconv(.c) void {
             if (c != 0 and (cons.e -% cons.r) < INPUT_BUF_SIZE) {
                 c = if (c == '\r') '\n' else c;
                 consputc(c);
-                cons.buf[@intCast(cons.e % INPUT_BUF_SIZE)] = @truncate(@as(cuint, @intCast(c)));
+                cons.buf[@intCast(cons.e % INPUT_BUF_SIZE)] = @truncate(@as(u32, @intCast(c)));
                 cons.e +%= 1;
 
                 if (c == '\n' or c == ctrl('D') or (cons.e -% cons.r) == INPUT_BUF_SIZE) {
@@ -159,7 +157,7 @@ pub export fn consoleintr(c_in: cint) callconv(.c) void {
     release(&cons.lock);
 }
 
-pub export fn consoleinit() callconv(.c) void {
+pub export fn consoleinit() void {
     initlock(&cons.lock, @constCast("cons"));
     uartinit();
     devsw[CONSOLE].read = &consoleread;

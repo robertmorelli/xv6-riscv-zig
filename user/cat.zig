@@ -22,8 +22,8 @@ fn cat(fd: i32) void {
 }
 
 pub export fn main(argc: i32, argv: [*][*:0]u8) i32 {
-    var i: usize = 1;
-    const n: usize = @intCast(argc);
+    var i: u64 = 1;
+    const n: u64 = @intCast(argc);
 
     if (argc <= 1) {
         cat(0);

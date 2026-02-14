@@ -9,7 +9,7 @@ fn putc(fd: i32, c: u8) void {
 
 fn printint(fd: i32, xx: i64, base: u32, sgn: bool) void {
     var buf: [20]u8 = undefined;
-    var i: usize = 0;
+    var i: u64 = 0;
     var x: u64 = 0;
     var neg = false;
 
@@ -43,16 +43,16 @@ fn printptr(fd: i32, x0: u64) void {
     var x = x0;
     putc(fd, '0');
     putc(fd, 'x');
-    var i: usize = 0;
+    var i: u64 = 0;
     while (i < (@sizeOf(u64) * 2)) : (i += 1) {
-        const d: usize = @intCast((x >> (@sizeOf(u64) * 8 - 4)) & 0xf);
+        const d: u64 = @intCast((x >> (@sizeOf(u64) * 8 - 4)) & 0xf);
         putc(fd, digits[d]);
         x <<= 4;
     }
 }
 
 fn vprintf(fd: i32, fmt: [*:0]const u8, ap: anytype) void {
-    var i: usize = 0;
+    var i: u64 = 0;
     var state: u8 = 0;
 
     while (fmt[i] != 0) : (i += 1) {
